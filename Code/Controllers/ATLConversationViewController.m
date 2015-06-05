@@ -383,6 +383,10 @@ static NSString *const ATLDefaultPushAlertText = @"sent you a message.";
         
         [message markAsRead:nil];
     }
+	
+	if ([self.dataSource respondsToSelector:@selector(conversationViewController:customiseCell:forMessage:)]) {
+		[self.dataSource conversationViewController:self customiseCell:cell forMessage:message];
+	}
 }
 
 - (void)configureFooter:(ATLConversationCollectionViewFooter *)footer atIndexPath:(NSIndexPath *)indexPath

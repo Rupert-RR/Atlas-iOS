@@ -133,6 +133,15 @@
 - (NSString *)conversationViewController:(ATLConversationViewController *)viewController reuseIdentifierForMessage:(LYRMessage *)message;
 
 /**
+ @abstract Allows the data source to customise the collection view cell for a message.
+ @param viewController The `ATLConversationViewController` requesting the string.
+ @param cell The `ATLMessagePresenting` cell to be customised.
+ @param message The `LYRMessage` object to display in the cell.
+ @discussion Applications may set properties on the cell (or potentially return a different cell).
+ */
+- (void)conversationViewController:(ATLConversationViewController *)viewController customiseCell:(id<ATLMessagePresenting>)cell forMessage:(LYRMessage *)message;
+
+/**
  @abstract Asks the data source to provide a conversation for a set of participants.
  @param viewController The `ATLConversationViewController` requesting the conversation.
  @param participants A set of objects conforming to `ATLParticipant`.
