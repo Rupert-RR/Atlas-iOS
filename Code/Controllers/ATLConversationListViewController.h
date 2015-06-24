@@ -181,6 +181,10 @@
 @property (nonatomic) LYRClient *layerClient;
 
 /**
+ @abstract The query controller used to load conversations for the table view
+ */
+@property (nonatomic, readonly) LYRQueryController *queryController;
+/**
  @abstract The object that is informed when specific events occur
  within the `LYRConversationListViewController`.
  */

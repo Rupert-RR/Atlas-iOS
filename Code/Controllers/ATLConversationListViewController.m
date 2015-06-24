@@ -29,7 +29,7 @@ static NSString *const ATLGIFMIMETypePlaceholderText = @"Attachment: GIF";
 
 @interface ATLConversationListViewController () <UIActionSheetDelegate, LYRQueryControllerDelegate, UISearchBarDelegate, UISearchControllerDelegate, UISearchDisplayDelegate>
 
-@property (nonatomic) LYRQueryController *queryController;
+@property (nonatomic, readwrite) LYRQueryController *queryController;
 @property (nonatomic) LYRQueryController *searchQueryController;
 @property (nonatomic) LYRConversation *conversationToDelete;
 @property (nonatomic) LYRConversation *conversationSelectedBeforeContentChange;
