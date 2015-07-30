@@ -10,7 +10,7 @@ end
 
 target 'Storyboard' do
   pod 'Atlas', path: '.'
-  pod 'LayerKit'
+  pod 'LayerKit', '14.0.0'
 end
 
 target 'ProgrammaticTests' do
