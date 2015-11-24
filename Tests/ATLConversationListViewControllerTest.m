@@ -52,15 +52,14 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
 
 - (void)tearDown
 {
+    [super tearDown];
+    [tester waitForAnimationsToFinish];
     [self.testInterface dismissPresentedViewController];
-    self.viewController.queryController = nil;
-    self.viewController = nil;
+    if (self.viewController) self.viewController = nil;
     
     [[LYRMockContentStore sharedStore] resetContentStore];
     [self resetAppearance];
     self.testInterface = nil;
-    
-    [super tearDown];
 }
 
 - (void)testToVerifyConversationListBaseUI
@@ -224,6 +223,23 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     expect([cell class]).toNot.equal([ATLConversationTableViewCell class]);
 }
 
+//Verify search bar does show up on screen for default `shouldDisplaySearchController` value `YES`.
+- (void)testToVerifyDefaultShouldDisplaySearchControllerFunctionality
+{
+    self.viewController = [ATLSampleConversationListViewController conversationListViewControllerWithLayerClient:(LYRClient *)self.testInterface.layerClient];
+    [self setRootViewController:self.viewController];
+    [tester waitForViewWithAccessibilityLabel:@"Search Bar"];
+}
+
+//Verify search bar does not show up on screen if property set to `NO`.
+- (void)testToVerifyShouldDisplaySearchControllerFunctionality
+{
+    self.viewController = [ATLSampleConversationListViewController conversationListViewControllerWithLayerClient:(LYRClient *)self.testInterface.layerClient];
+    [self.viewController setShouldDisplaySearchController:NO];
+    [self setRootViewController:self.viewController];
+    [tester waitForAbsenceOfViewWithAccessibilityLabel:@"Search Bar"];
+}
+
 //Verify that attempting to provide a cell class that does not conform to ATLConversationPresenting results in a runtime exception.
 - (void)testToVerifyCustomCellClassNotConformingToProtocolRaisesException
 {
@@ -298,6 +314,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     }] conversationListViewController:[OCMArg any] avatarItemForConversation:[OCMArg any]];
     
     conversation = (LYRConversation *)[self newConversationWithMockUser:mockUser1 lastMessageText:@"Test Message"];
+    [delegateMock verify];
 }
 
 #pragma mark - ATLConversationListViewControllerDelegate
@@ -327,7 +344,6 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     [tester tapViewWithAccessibilityLabel:[self.testInterface conversationLabelForConversation:conversation1]];
     [delegateMock verify];
 }
-
 
 - (void)testToVerifyDelegateIsNotifiedOfGlobalConversationDeletion
 {
@@ -512,7 +528,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     [self setRootViewController:self.viewController];
     [delegateMock verifyWithDelay:2];
     
-    expect(self.viewController.queryController.query.sortDescriptors).to.contain(sortDescriptor);
+    expect(self.viewController.queryController.query.sortDescriptors).will.contain(sortDescriptor);
 }
 
 - (void)testToVerifyAvatarImageURLLoad

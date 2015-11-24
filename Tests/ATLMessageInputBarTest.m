@@ -24,6 +24,7 @@
 #import "ATLSampleConversationViewController.h"
 #import "ATLMediaAttachment.h"
 #import "ATLConstants.h"
+#import "ATLTestUtilities.h"
 
 @interface ATLConversationViewController ()
 
@@ -47,6 +48,8 @@ extern NSString *const ATLMessageInputToolbarAccessibilityLabel;
 extern NSString *const ATLMessageInputToolbarCameraButton;
 extern NSString *const ATLMessageInputToolbarLocationButton;
 extern NSString *const ATLMessageInputToolbarSendButton;
+CGFloat const ATLRightAccessoryButtonDefaultWidth = 46.0f;
+CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
 
 - (void)setUp
 {
@@ -90,6 +93,18 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     [tester clearTextFromViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
     [tester waitForViewWithAccessibilityLabel:ATLMessageInputToolbarLocationButton];
     [tester waitForAbsenceOfViewWithAccessibilityLabel:ATLMessageInputToolbarSendButton];
+}
+
+- (void)testToVerifyRightAccessoryButtonWidthChangesWithTitle
+{
+    [self setRootViewController];
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:ATLMessageInputToolbarAccessibilityLabel];
+    toolBar.rightAccessoryButtonTitle = @"longer title";
+    expect(toolBar.rightAccessoryButton.frame.size.width).to.equal(ATLRightAccessoryButtonDefaultWidth);
+    toolBar.textInputView.text = @"heyhey";
+    [toolBar layoutSubviews];
+    CGFloat width = [toolBar.rightAccessoryButtonTitle boundingRectWithSize:CGSizeMake(MAXFLOAT, MAXFLOAT) options:0 attributes:@{NSFontAttributeName: toolBar.rightAccessoryButtonFont} context:nil].size.width + ATLRightAccessoryButtonPadding;
+    expect(toolBar.rightAccessoryButton.frame.size.width).to.equal(width);
 }
 
 - (void)testToVerifyRightAccessoryButtonDelegateFunctionality
@@ -198,9 +213,9 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     
     [tester enterText:testText intoViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
     
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     ATLMediaAttachment *imageAttachment = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
-    [toolBar insertMediaAttachment:imageAttachment];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
     [tester tapViewWithAccessibilityLabel:ATLMessageInputToolbarSendButton];
     [delegateMock verify];
 }
@@ -222,10 +237,10 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     }] messageInputToolbar:toolBar didTapRightAccessoryButton:[OCMArg any]];
     
     [tester enterText:testText intoViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     ATLMediaAttachment *imageAttachment = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
-    [toolBar insertMediaAttachment:imageAttachment];
-    [toolBar insertMediaAttachment:imageAttachment];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
     [tester tapViewWithAccessibilityLabel:ATLMessageInputToolbarSendButton];
     [delegateMock verify];
 }
@@ -247,13 +262,13 @@ extern NSString *const ATLMessageInputToolbarSendButton;
         expect([parts objectAtIndex:4]).to.beKindOf([ATLMediaAttachment class]);
     }] messageInputToolbar:toolBar didTapRightAccessoryButton:[OCMArg any]];
     
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     ATLMediaAttachment *imageAttachment = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
-    [toolBar insertMediaAttachment:imageAttachment];
-    [toolBar insertMediaAttachment:imageAttachment];
-    [toolBar insertMediaAttachment:imageAttachment];
-    [toolBar insertMediaAttachment:imageAttachment];
-    [toolBar insertMediaAttachment:imageAttachment];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
     
     [tester tapViewWithAccessibilityLabel:ATLMessageInputToolbarSendButton];
     [delegateMock verify];
@@ -265,9 +280,9 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
     UIFont *font = toolBar.textInputView.font;
     
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     ATLMediaAttachment *imageAttachment = [ATLMediaAttachment mediaAttachmentWithImage:image metadata:nil thumbnailSize:100];
-    [toolBar insertMediaAttachment:imageAttachment];
+    [toolBar insertMediaAttachment:imageAttachment withEndLineBreak:YES];
 
     [tester clearTextFromViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
     expect(font).to.equal(toolBar.textInputView.font);
@@ -277,7 +292,7 @@ extern NSString *const ATLMessageInputToolbarSendButton;
 {
     [self setRootViewController];
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     toolBar.rightAccessoryImage = image;
     expect(toolBar.rightAccessoryButton.imageView.image).to.equal(image);
     expect(toolBar.rightAccessoryButton.enabled).to.beTruthy();
@@ -300,7 +315,7 @@ extern NSString *const ATLMessageInputToolbarSendButton;
 {
     [self setRootViewController];
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
-    UIImage *image = [UIImage imageNamed:@"test-logo"];
+    UIImage *image = ATLTestAttachmentMakeImageWithSize(CGSizeMake(1024, 512));
     toolBar.rightAccessoryImage = image;
     toolBar.leftAccessoryImage = image;
     
@@ -314,6 +329,13 @@ extern NSString *const ATLMessageInputToolbarSendButton;
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
     expect([toolBar.rightAccessoryButton titleColorForState:UIControlStateNormal]).to.equal(ATLBlueColor());
     expect([toolBar.rightAccessoryButton titleColorForState:UIControlStateDisabled]).to.equal([UIColor grayColor]);
+}
+
+- (void)testToVerifyDefaultFontForComposerTextInputView
+{
+    [self setRootViewController];
+    ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
+    expect(toolBar.textInputView.font).to.equal([UIFont systemFontOfSize:17]);
 }
 
 - (void)setRootViewController
