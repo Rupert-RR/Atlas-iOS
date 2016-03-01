@@ -20,8 +20,9 @@
 
 #import <UIKit/UIKit.h>
 #import "ATLParticipantPresenting.h"
-#import "ATLParticipant.h"    
+#import "ATLParticipant.h"
 
+NS_ASSUME_NONNULL_BEGIN
 /**
  @abstract The `ATLParticipantTableViewCell` class provides a lightweight, customizable table
  view cell for presenting Layer conversation participants.
@@ -43,4 +44,10 @@
  */
 @property (nonatomic) UIColor *titleColor UI_APPEARANCE_SELECTOR;
 
+/**
+ @abstract Whether to bold part of the title label displayed in the cell, according to the sort type. Default is YES.
+ */
+@property (nonatomic) BOOL shouldBoldTitle;
+
 @end
+NS_ASSUME_NONNULL_END

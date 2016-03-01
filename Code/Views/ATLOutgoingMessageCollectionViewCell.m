@@ -20,9 +20,17 @@
 
 #import "ATLOutgoingMessageCollectionViewCell.h"
 
-@implementation ATLOutgoingMessageCollectionViewCell
-
 NSString *const ATLOutgoingMessageCellIdentifier = @"ATLOutgoingMessageCellIdentifier";
+
+@interface ATLMessageCollectionViewCell()
+
+@property (nonatomic) NSLayoutConstraint *bubbleWithAvatarLeadConstraint;
+@property (nonatomic) NSLayoutConstraint *bubbleWithoutAvatarLeadConstraint;
+
+@end
+
+
+@implementation ATLOutgoingMessageCollectionViewCell
 
 + (void)initialize
 {
@@ -52,8 +60,8 @@ NSString *const ATLOutgoingMessageCellIdentifier = @"ATLOutgoingMessageCellIdent
 
 - (void)lyr_outgoingCommonInit
 {
-    self.avatarImageView.hidden = YES;
-    [self.contentView addConstraint:[NSLayoutConstraint constraintWithItem:self.bubbleView  attribute:NSLayoutAttributeRight relatedBy:NSLayoutRelationEqual toItem:self.contentView attribute:NSLayoutAttributeRight multiplier:1.0 constant:-ATLMessageCellHorizontalMargin]];
+    [self configureCellForType:ATLOutgoingCellType];
 }
+
 
 @end

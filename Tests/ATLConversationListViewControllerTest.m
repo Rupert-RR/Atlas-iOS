@@ -52,15 +52,14 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
 
 - (void)tearDown
 {
+    [super tearDown];
+    [tester waitForAnimationsToFinish];
     [self.testInterface dismissPresentedViewController];
-    self.viewController.queryController = nil;
-    self.viewController = nil;
+    if (self.viewController) self.viewController = nil;
     
     [[LYRMockContentStore sharedStore] resetContentStore];
     [self resetAppearance];
     self.testInterface = nil;
-    
-    [super tearDown];
 }
 
 - (void)testToVerifyConversationListBaseUI
@@ -121,7 +120,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     ATLUserMock *mockUser1 = [ATLUserMock userWithMockUserName:ATLMockUserNameKlemen];
     LYRConversationMock *conversation1 = [self newConversationWithMockUser:mockUser1 lastMessageText:@"Test Message"];
     [tester swipeViewWithAccessibilityLabel:[self.testInterface conversationLabelForConversation:conversation1] inDirection:KIFSwipeDirectionLeft];
-    [self deleteConversation:conversation1 deletionMode:LYRDeletionModeLocal];
+    [self deleteConversation:conversation1 deletionMode:LYRDeletionModeMyDevices];
 }
 
 //Test editing mode and deleting several conversations at once. Verify that all conversations selected are deleted from the table and from the Layer client.
@@ -142,13 +141,13 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     [tester tapViewWithAccessibilityLabel:@"Edit"];
     
     [tester tapViewWithAccessibilityLabel:[NSString stringWithFormat:@"Delete %@", mockUser1.fullName]];
-    [self deleteConversation:conversation1 deletionMode:LYRDeletionModeLocal];
+    [self deleteConversation:conversation1 deletionMode:LYRDeletionModeMyDevices];
     
     [tester tapViewWithAccessibilityLabel:[NSString stringWithFormat:@"Delete %@", mockUser2.fullName]];
-    [self deleteConversation:conversation2 deletionMode:LYRDeletionModeLocal];
+    [self deleteConversation:conversation2 deletionMode:LYRDeletionModeMyDevices];
     
     [tester tapViewWithAccessibilityLabel:[NSString stringWithFormat:@"Delete %@", mockUser3.fullName]];
-    [self deleteConversation:conversation3 deletionMode:LYRDeletionModeLocal];
+    [self deleteConversation:conversation3 deletionMode:LYRDeletionModeMyDevices];
     
     LYRQuery *query = [LYRQuery queryWithQueryableClass:[LYRConversation class]];
     NSError *error;
@@ -222,6 +221,23 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     ATLConversationTableViewCell *cell = (ATLConversationTableViewCell *)[tester waitForViewWithAccessibilityLabel:conversationLabel];
     expect([cell class]).to.equal([ATLTestConversationCell class]);
     expect([cell class]).toNot.equal([ATLConversationTableViewCell class]);
+}
+
+//Verify search bar does show up on screen for default `shouldDisplaySearchController` value `YES`.
+- (void)testToVerifyDefaultShouldDisplaySearchControllerFunctionality
+{
+    self.viewController = [ATLSampleConversationListViewController conversationListViewControllerWithLayerClient:(LYRClient *)self.testInterface.layerClient];
+    [self setRootViewController:self.viewController];
+    [tester waitForViewWithAccessibilityLabel:@"Search Bar"];
+}
+
+//Verify search bar does not show up on screen if property set to `NO`.
+- (void)testToVerifyShouldDisplaySearchControllerFunctionality
+{
+    self.viewController = [ATLSampleConversationListViewController conversationListViewControllerWithLayerClient:(LYRClient *)self.testInterface.layerClient];
+    [self.viewController setShouldDisplaySearchController:NO];
+    [self setRootViewController:self.viewController];
+    [tester waitForAbsenceOfViewWithAccessibilityLabel:@"Search Bar"];
 }
 
 //Verify that attempting to provide a cell class that does not conform to ATLConversationPresenting results in a runtime exception.
@@ -298,6 +314,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     }] conversationListViewController:[OCMArg any] avatarItemForConversation:[OCMArg any]];
     
     conversation = (LYRConversation *)[self newConversationWithMockUser:mockUser1 lastMessageText:@"Test Message"];
+    [delegateMock verify];
 }
 
 #pragma mark - ATLConversationListViewControllerDelegate
@@ -327,7 +344,6 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     [tester tapViewWithAccessibilityLabel:[self.testInterface conversationLabelForConversation:conversation1]];
     [delegateMock verify];
 }
-
 
 - (void)testToVerifyDelegateIsNotifiedOfGlobalConversationDeletion
 {
@@ -375,7 +391,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     ATLUserMock *mockUser1 = [ATLUserMock userWithMockUserName:ATLMockUserNameKlemen];
     LYRConversationMock *conversation1 = [self newConversationWithMockUser:mockUser1 lastMessageText:@"Test Message"];
     
-    LYRDeletionMode deletionMode = LYRDeletionModeLocal;
+    LYRDeletionMode deletionMode = LYRDeletionModeMyDevices;
     [[[delegateMock expect] andDo:^(NSInvocation *invocation) {
         ATLConversationListViewController *controller;
         [invocation getArgument:&controller atIndex:2];
@@ -512,7 +528,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
     [self setRootViewController:self.viewController];
     [delegateMock verifyWithDelay:2];
     
-    expect(self.viewController.queryController.query.sortDescriptors).to.contain(sortDescriptor);
+    expect(self.viewController.queryController.query.sortDescriptors).will.contain(sortDescriptor);
 }
 
 - (void)testToVerifyAvatarImageURLLoad
@@ -540,7 +556,7 @@ extern NSString *const ATLAvatarImageViewAccessibilityLabel;
             [tester tapViewWithAccessibilityLabel:[NSString stringWithFormat:@"Global"]];
             [tester waitForAbsenceOfViewWithAccessibilityLabel:[self.testInterface conversationLabelForConversation:conversation]];
             break;
-        case LYRDeletionModeLocal:
+        case LYRDeletionModeMyDevices:
             [tester waitForViewWithAccessibilityLabel:@"Local"];
             [tester tapViewWithAccessibilityLabel:[NSString stringWithFormat:@"Local"]];
             [tester waitForAbsenceOfViewWithAccessibilityLabel:[self.testInterface conversationLabelForConversation:conversation]];

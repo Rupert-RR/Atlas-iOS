@@ -22,8 +22,10 @@
 #import <MapKit/MapKit.h>
 #import "ATLProgressView.h"
 
+NS_ASSUME_NONNULL_BEGIN
 extern CGFloat const ATLMessageBubbleLabelVerticalPadding;
 extern CGFloat const ATLMessageBubbleLabelHorizontalPadding;
+extern CGFloat const ATLMessageBubbleLabelWidthMargin;
 extern CGFloat const ATLMessageBubbleMapWidth;
 extern CGFloat const ATLMessageBubbleMapHeight;
 extern CGFloat const ATLMessageBubbleDefaultHeight;
@@ -32,6 +34,11 @@ extern CGFloat const ATLMessageBubbleDefaultHeight;
  @abstract Posted when a user taps a link in a message bubble.
  */
 extern NSString *const ATLUserDidTapLinkNotification;
+
+/**
+ @abstract Posted when a user taps a phone number in a message bubble.
+ */
+extern NSString *const ATLUserDidTapPhoneNumberNotification;
 
 /**
  @abstract The `ATLMessageBubbleView` class provides a lightweight, customizable view that 
@@ -50,6 +57,11 @@ extern NSString *const ATLUserDidTapLinkNotification;
  @abstract Tells the bubble view to display a given image.
  */
 - (void)updateWithImage:(UIImage *)image width:(CGFloat)width;
+
+/**
+ @abstract Tells the bubble view to display the thumbnail for a video.
+ */
+- (void)updateWithVideoThumbnail:(UIImage *)image width:(CGFloat)width;
 
 /**
  @abstract Tells the bubble view to display a map image for a given location.
@@ -79,4 +91,21 @@ extern NSString *const ATLUserDidTapLinkNotification;
  */
 @property (nonatomic) UIImageView *bubbleImageView;
 
+/**
+ @abstract The NSTextCheckingTypes that are set as links
+ @discussion Currently supports NSTextCheckingTypeLink and NSTextCheckingTypePhoneNumber
+ @default NSTextCheckingTypeLink
+ */
+@property (nonatomic) NSTextCheckingType textCheckingTypes;
+
+/**
+ @abstract `UIMenuItem` objects that the application wants to display on long press, overriding the default copy functionality.
+ @discussion If set to nil or an empty array, this will deactivate all menu controller actions.  This property can be set in the
+ `ATLConversationViewController` subclass by implementing the delegate `conversationViewController:configureCell:forMessage` and
+ overriding this property's default value.
+ @default `UIMenuItem` copy action.
+ */
+@property (nonatomic) NSArray <UIMenuItem*> *menuControllerActions;
+
 @end
+NS_ASSUME_NONNULL_END

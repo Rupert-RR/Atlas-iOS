@@ -21,6 +21,8 @@
 #import "ATLAddressBarViewController.h"
 #import "ATLConstants.h"
 #import "ATLAddressBarContainerView.h"
+#import "ATLMessagingUtilities.h"
+#import "ATLParticipantTableViewCell.h"
 
 @interface ATLAddressBarViewController () <UITextViewDelegate, UITableViewDataSource, UITableViewDelegate>
 
@@ -46,6 +48,7 @@ static NSString *const ATLAddressBarParticipantAttributeName = @"ATLAddressBarPa
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    self.shouldShowParticipantAvatars = NO;
     self.view.accessibilityLabel = ATLAddressBarAccessibilityLabel;
     self.view.translatesAutoresizingMaskIntoConstraints = NO;
     
@@ -62,7 +65,7 @@ static NSString *const ATLAddressBarParticipantAttributeName = @"ATLAddressBarPa
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.rowHeight = 56;
-    [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:ATLMParticpantCellIdentifier];
+    [self.tableView registerClass:[ATLParticipantTableViewCell class] forCellReuseIdentifier:ATLMParticpantCellIdentifier];
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     self.tableView.hidden = YES;
     [self.view addSubview:self.tableView];
@@ -148,11 +151,12 @@ static NSString *const ATLAddressBarParticipantAttributeName = @"ATLAddressBarPa
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:ATLMParticpantCellIdentifier];
+    ATLParticipantTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:ATLMParticpantCellIdentifier];
+    cell.titleFont = ATLMediumFont(16);
+    cell.titleColor = ATLBlueColor();
+    cell.shouldBoldTitle = NO;
     id<ATLParticipant> participant = self.participants[indexPath.row];
-    cell.textLabel.text = participant.fullName;
-    cell.textLabel.font = ATLMediumFont(16);
-    cell.textLabel.textColor = ATLBlueColor();
+    [cell presentParticipant:participant withSortType:ATLParticipantPickerSortTypeFirstName shouldShowAvatarItem:self.shouldShowParticipantAvatars];
     return cell;
 }
 
@@ -486,8 +490,8 @@ static NSString *const ATLAddressBarParticipantAttributeName = @"ATLAddressBarPa
 
 - (NSString *)otherStringWithRemainingParticipants:(NSUInteger)remainingParticipants
 {
-    NSString *othersString = (remainingParticipants > 1) ? @"others" : @"other";
-    return [NSString stringWithFormat:@"and %lu %@", (unsigned long)remainingParticipants, othersString];
+    NSString *othersString = (remainingParticipants > 1) ? ATLLocalizedString(@"atl.addressbar.others.key", @"other", nil) : ATLLocalizedString(@"atl.addressbar.other.key", @"other", nil);
+    return [NSString stringWithFormat:@"%@ %lu %@", ATLLocalizedString(@"atl.addressbar.and.key", @"and", nil), (unsigned long)remainingParticipants, othersString];
 }
 
 - (BOOL)textViewHasSpaceForParticipantString:(NSString *)participantString

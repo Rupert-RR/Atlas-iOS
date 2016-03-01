@@ -19,11 +19,16 @@
 //
 
 #import <UIKit/UIKit.h>
-#import <LayerKit/LayerKit.h>
+@import LayerKit;
 #import <MapKit/MapKit.h>
 #import "ATLParticipant.h"
 #import "ATLBaseConversationViewController.h"
 
+typedef NS_ENUM(NSUInteger, ATLAvatarItemDisplayFrequency) {
+    ATLAvatarItemDisplayFrequencySection,
+    ATLAvatarItemDisplayFrequencyCluster,
+    ATLAvatarItemDisplayFrequencyAll
+};
 
 @class ATLConversationViewController;
 @protocol ATLMessagePresenting;
@@ -32,6 +37,7 @@
 /// @name Delegate
 ///---------------------------------------
 
+NS_ASSUME_NONNULL_BEGIN
 @protocol ATLConversationViewControllerDelegate <NSObject>
 
 @optional
@@ -69,6 +75,16 @@
 - (CGFloat)conversationViewController:(ATLConversationViewController *)viewController heightForMessage:(LYRMessage *)message withCellWidth:(CGFloat)cellWidth;
 
 /**
+ @abstract Informs the delegate of a cell being configured for the specified message.
+ @param viewController The `ATLConversationViewController` where the message cell will appear.
+ @param cell The `UICollectionViewCell` object that confirms to the `ATLMessagePresenting` protocol that will be displayed in the controller.
+ @param message The `LYRMessage` object that will be displayed in the cell.
+ @discussion Applications should implement this method if they want add further configuration that is not set up during cell initialization, such as gesture recognizers.
+ It is up to the application to typecast the cell to access custom cell properties.
+ */
+- (void)conversationViewController:(ATLConversationViewController *)conversationViewController configureCell:(UICollectionViewCell<ATLMessagePresenting> *)cell forMessage:(LYRMessage *)message;
+
+/**
  @abstract Asks the delegate for an `NSOrderedSet` of `LYRMessage` objects representing an `NSArray` of content parts.
  @param viewController The `ATLConversationViewController` supplying the content parts.
  @param mediaAttachments The array of `ATLMediaAttachment` items supplied via user input into the `messageInputToolbar` property of the controller.
@@ -81,7 +97,7 @@
  current conversation for the controller. If implemented, applications should also register custom `UICollectionViewCell` classes with the controller via
  a call to `registerClass:forMessageCellWithReuseIdentifier:`. They should also implement the optional data source method, `conversationViewController:reuseIdentifierForMessage:`.
  */
-- (NSOrderedSet *)conversationViewController:(ATLConversationViewController *)viewController messagesForMediaAttachments:(NSArray *)mediaAttachments;
+- (NSOrderedSet <LYRMessage*> *)conversationViewController:(ATLConversationViewController *)viewController messagesForMediaAttachments:(NSArray <ATLMediaAttachment*> *)mediaAttachments;
 
 @end
 
@@ -175,7 +191,7 @@
  a Layer conversation and the ability to send messages. The controller's design and functionality closely correlates with
  the conversation view controller in Messages.
 */
-@interface ATLConversationViewController : ATLBaseConversationViewController <ATLAddressBarViewControllerDelegate, ATLMessageInputToolbarDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+@interface ATLConversationViewController : ATLBaseConversationViewController <ATLAddressBarViewControllerDelegate, ATLMessageInputToolbarDelegate, UIActionSheetDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LYRQueryControllerDelegate>
 
 ///---------------------------------------
 /// @name Initializing a Controller
@@ -189,11 +205,11 @@
 + (instancetype)conversationViewControllerWithLayerClient:(LYRClient *)layerClient;
 
 /**
- @abstract Creates and returns a new `ATLConversationViewController` initialized with an `LYRClient` object.
+ @abstract Initializes a new `ATLConversationViewController` object with the given `LYRClient` object.
  @param layerClient The `LYRClient` object from which to retrieve the messages for display.
- @return An `LYRConversationViewController` object.
+ @return An `LYRConversationViewController` object initialized with the given `LYRClient` object.
  */
-- (instancetype)initWithLayerClient:(LYRClient *)layerClient NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithLayerClient:(LYRClient *)layerClient;
 
 /**
  @abstract The `LYRClient` object used to initialize the controller.
@@ -206,6 +222,11 @@
  @abstract The `LYRConversation` object whose messages will be displayed in the controller.
  */
 @property (nonatomic) LYRConversation *conversation;
+
+/**
+ @abstract The `LYRQueryController` object managing data displayed in the controller.
+ */
+@property (nonatomic, readonly) LYRQueryController *queryController;
 
 /**
  @abstract The `ATLConversationViewControllerDelegate` class informs the receiver to specific events that occurred within the controller.
@@ -243,6 +264,13 @@
  */
 - (void)sendLocationMessage;
 
+/**
+ @abstract Sends the specified message in the current conversation and informs the delegate of success or failure.
+ @discussion This method can be used to send custom `LYRMessage` objects that are initialized outside of Atlas's default implementation.
+ @param message The Message object to send.
+ */
+- (void)sendMessage:(LYRMessage *)message;
+
 ///---------------------------
 /// @name Configuring Behavior
 ///---------------------------
@@ -263,7 +291,21 @@
 /**
  @abstract A Boolean value that determines whether or not an avatar is shown if there is only one other participant in the conversation.
  @default `NO`.
+ Should be set before `[super viewDidLoad]` is called.
  */
 @property (nonatomic) BOOL shouldDisplayAvatarItemForOneOtherParticipant;
 
+/**
+ @abstract A Boolean value that determines whether or not an avatar is shown next to the outgoing messages
+ @default `NO`.
+ */
+@property (nonatomic) BOOL shouldDisplayAvatarItemForAuthenticatedUser;
+
+/**
+ @abstract An Enum value that determines how often avatar items should be shown next to messages.
+ @default 'ATLAvatarItemDisplayFrequencySection'.
+ */
+@property (nonatomic) ATLAvatarItemDisplayFrequency avatarItemDisplayFrequency;
+
 @end
+NS_ASSUME_NONNULL_END

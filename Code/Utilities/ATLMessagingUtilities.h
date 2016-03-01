@@ -19,11 +19,14 @@
 //
 
 #import <Foundation/Foundation.h>
-#import <LayerKit/LayerKit.h>
+@import LayerKit;
 #import <MapKit/MapKit.h>
 #import <ImageIO/ImageIO.h>
 #import "ATLMediaAttachment.h"
+#import "UIResponder+ATLFirstResponder.h"
+#import "ATLMessageComposeTextView.h"
 
+NS_ASSUME_NONNULL_BEGIN
 extern NSString *const ATLMIMETypeTextPlain;          // text/plain
 extern NSString *const ATLMIMETypeImagePNG;           // image/png
 extern NSString *const ATLMIMETypeImageJPEG;          // image/jpeg
@@ -31,16 +34,33 @@ extern NSString *const ATLMIMETypeImageJPEGPreview;   // image/jpeg+preview
 extern NSString *const ATLMIMETypeImageGIF;           // image/gif
 extern NSString *const ATLMIMETypeImageGIFPreview;    // image/gif+preview
 extern NSString *const ATLMIMETypeImageSize;          // application/json+imageSize
+extern NSString *const ATLMIMETypeVideoQuickTime;     // video/quicktime
 extern NSString *const ATLMIMETypeLocation;           // location/coordinate
 extern NSString *const ATLMIMETypeDate;               // text/date
-
+extern NSString *const ATLMIMETypeVideoMP4;           // video/mp4
 extern NSUInteger const ATLDefaultThumbnailSize;      // 512px
 extern NSUInteger const ATLDefaultGIFThumbnailSize;   // 64px
 
+extern NSString *const ATLPasteboardImageKey;
 extern NSString *const ATLImagePreviewWidthKey;
 extern NSString *const ATLImagePreviewHeightKey;
 extern NSString *const ATLLocationLatitudeKey;
 extern NSString *const ATLLocationLongitudeKey;
+
+extern NSString *const ATLUserNotificationInlineReplyActionIdentifier;
+extern NSString *const ATLUserNotificationDefaultActionsCategoryIdentifier;
+
+//-------------------
+// @name Push Support
+//-------------------
+
+UIMutableUserNotificationCategory *ATLDefaultUserNotificationCategory();
+
+//---------------------------------
+// @name Internationalization Macro
+//---------------------------------
+
+#define ATLLocalizedString(key, value, comment) NSLocalizedStringWithDefaultValue(key, nil, [NSBundle mainBundle], value, comment)
 
 //--------------------------
 // @name Max Cell Dimensions
@@ -71,22 +91,37 @@ CGSize ATLTextPlainSize(NSString *string, UIFont *font);
 
 CGRect ATLImageRectConstrainedToSize(CGSize imageSize, CGSize maxSize);
 
+CGFloat ATLDegreeToRadians(CGFloat degrees);
+
+//------------------------
+// @name Message Utilities
+//------------------------
+
+LYRMessage *__nullable ATLMessageForParts(LYRClient *layerClient, NSArray <LYRMessagePart*> *messageParts, NSString *pushText, NSString *pushSound);
+
 //-----------------------------
 // @name Message Part Utilities
 //-----------------------------
 
-NSArray *ATLMessagePartsWithMediaAttachment(ATLMediaAttachment *mediaAttachment);
+NSArray <LYRMessagePart*> *ATLMessagePartsWithMediaAttachment(ATLMediaAttachment *mediaAttachment);
 
-LYRMessagePart *ATLMessagePartForMIMEType(LYRMessage *message, NSString *MIMEType);
+LYRMessagePart *__nullable ATLMessagePartForMIMEType(LYRMessage *message, NSString *MIMEType);
 
 //------------------------------
 // @name Image Capture Utilities
 //------------------------------
 
-void ATLAssetURLOfLastPhotoTaken(void(^completionHandler)(NSURL *assetURL, NSError *error));
+void ATLAssetURLOfLastPhotoTaken(void(^completionHandler)(NSURL *__nullable assetURL, NSError *__nullable error));
 
-void ATLLastPhotoTaken(void(^completionHandler)(UIImage *image, NSError *error));
+void ATLLastPhotoTaken(void(^completionHandler)(UIImage *__nullable image, NSError *__nullable error));
 
-UIImage *ATLPinPhotoForSnapshot(MKMapSnapshot *snapshot, CLLocationCoordinate2D location);
+UIImage *__null_unspecified ATLPinPhotoForSnapshot(MKMapSnapshot *snapshot, CLLocationCoordinate2D location);
 
-NSArray *ATLLinkResultsForText(NSString *text);
+NSArray <NSTextCheckingResult *> *__nullable ATLTextCheckingResultsForText(NSString *text, NSTextCheckingType linkTypes);
+
+//---------------------------------
+// @name Resources Bundle Utilities
+//---------------------------------
+
+NSBundle *ATLResourcesBundle(void);
+NS_ASSUME_NONNULL_END

@@ -23,24 +23,28 @@
 #import "ATLUIImageHelper.h"
 #import "ATLIncomingMessageCollectionViewCell.h"
 #import "ATLOutgoingMessageCollectionViewCell.h"
-#import <LayerKit/LayerKit.h> 
+
+@import LayerKit;
+
 
 NSString *const ATLGIFAccessibilityLabel = @"Message: GIF";
 NSString *const ATLImageAccessibilityLabel = @"Message: Image";
+NSString *const ATLVideoAccessibilityLabel = @"Message: Video";
+static char const ATLMessageCollectionViewCellImageProcessingConcurrentQueue[] = "com.layer.Atlas.ATLMessageCollectionViewCell.imageProcessingConcurrentQueue";
+
+CGFloat const ATLMessageCellMinimumHeight = 10.0f;
+NSInteger const kATLSharedCellTag = 1000;
 
 @interface ATLMessageCollectionViewCell () <LYRProgressDelegate>
 
 @property (nonatomic) BOOL messageSentState;
-@property (nonatomic) LYRMessage *message;
 @property (nonatomic) LYRProgress *progress;
 @property (nonatomic) NSUInteger lastProgressFractionCompleted;
+@property (nonatomic) dispatch_queue_t imageProcessingConcurrentQueue;
 
 @end
 
 @implementation ATLMessageCollectionViewCell
-
-CGFloat const ATLMessageCellMinimumHeight = 10.0f;
-CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
 
 + (ATLMessageCollectionViewCell *)sharedCell
 {
@@ -48,8 +52,20 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         _sharedCell = [[self class] new];
+        _sharedCell.tag = kATLSharedCellTag;
+        _sharedCell.hidden = YES;
     });
     return _sharedCell;
+}
+
++ (NSCache *)sharedHeightCache
+{
+    static NSCache *sharedHeightCache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedHeightCache = [NSCache new];
+    });
+    return sharedHeightCache;
 }
 
 - (id)initWithFrame:(CGRect)frame
@@ -76,22 +92,9 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     _messageTextFont = [UIFont systemFontOfSize:17];
     _messageTextColor = [UIColor blackColor];
     _messageLinkTextColor = [UIColor whiteColor];
-    _bubbleViewColor = ATLBlueColor();
-    _bubbleViewCornerRadius = 17.0f;
-    
-    _bubbleView = [[ATLMessageBubbleView alloc] init];
-    _bubbleView.translatesAutoresizingMaskIntoConstraints = NO;
-    _bubbleView.layer.cornerRadius = _bubbleViewCornerRadius;
-    _bubbleView.backgroundColor = _bubbleViewColor;
-    [self.contentView addSubview:_bubbleView];
-    
-    _avatarImageView = [[ATLAvatarImageView alloc] init];
-    _avatarImageView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:_avatarImageView];
-    
+    _messageTextCheckingTypes = NSTextCheckingTypeLink;
+    _imageProcessingConcurrentQueue = dispatch_queue_create(ATLMessageCollectionViewCellImageProcessingConcurrentQueue, DISPATCH_QUEUE_CONCURRENT);
     [self.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
-    
-    [self configureLayoutConstraints];
 }
 
 - (void)prepareForReuse
@@ -100,15 +103,13 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     // Remove self from any previously assigned LYRProgress instance.
     self.progress.delegate = nil;
     self.lastProgressFractionCompleted = 0;
-    [self.avatarImageView resetView];
-    [self.bubbleView prepareForReuse];
 }
 
-- (void)presentMessage:(LYRMessage *)message;
+- (void)presentMessage:(LYRMessage *)message
 {
     self.message = message;
     LYRMessagePart *messagePart = message.parts.firstObject;
-    
+    [self updateBubbleWidth:[[self class] cellSizeForMessage:self.message inView:nil].width];
     if ([self messageContainsTextContent]) {
         [self configureBubbleViewForTextContent];
     } else if ([messagePart.MIMEType isEqualToString:ATLMIMETypeImageJPEG]) {
@@ -119,7 +120,10 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
         [self configureBubbleViewForGIFContent];
     } else if ([messagePart.MIMEType isEqualToString:ATLMIMETypeLocation]) {
         [self configureBubbleViewForLocationContent];
+    } else if ([messagePart.MIMEType isEqualToString:ATLMIMETypeVideoMP4]) {
+        [self configureBubbleViewForVideoContent];
     }
+    
 }
 
 - (void)configureBubbleViewForTextContent
@@ -134,32 +138,81 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
 - (void)configureBubbleViewForImageContent
 {
     self.accessibilityLabel = ATLImageAccessibilityLabel;
-    
+
     LYRMessagePart *fullResImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageJPEG);
     if (!fullResImagePart) {
         fullResImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImagePNG);
     }
-
-    if (fullResImagePart && ((fullResImagePart.transferStatus == LYRContentTransferAwaitingUpload) ||
-                             (fullResImagePart.transferStatus == LYRContentTransferUploading))) {
-        // Set self for delegation, if full resolution message part
-        // hasn't been uploaded yet, or is still uploading.
-        LYRProgress *progress = fullResImagePart.progress;
-        [progress setDelegate:self];
-        self.progress = progress;
-        [self.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
+    
+    if (fullResImagePart && ((fullResImagePart.transferStatus == LYRContentTransferAwaitingUpload) || (fullResImagePart.transferStatus == LYRContentTransferUploading))) {
+        [self updateCellWithProgress:fullResImagePart.progress];
     } else {
         [self.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
     }
     
-    UIImage *displayingImage;
-    LYRMessagePart *previewImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageJPEGPreview);
-    
+    __block UIImage *displayingImage;
+    __block LYRMessagePart *previewImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageJPEGPreview);
     if (!previewImagePart) {
-        // If no preview image part found, resort to the full-resolution image.
-        previewImagePart = fullResImagePart;
+        previewImagePart = fullResImagePart;  // If no preview image part found, resort to the full-resolution image.
     }
     
+    __weak typeof(self) weakSelf = self;
+    __block LYRMessage *previousMessage = weakSelf.message;
+    
+    dispatch_async(self.imageProcessingConcurrentQueue, ^{
+        
+        if (previewImagePart.fileURL) {
+            displayingImage = [UIImage imageWithContentsOfFile:previewImagePart.fileURL.path];
+        } else {
+            displayingImage = [UIImage imageWithData:previewImagePart.data];
+        }
+        
+        CGSize size = CGSizeZero;
+        LYRMessagePart *sizePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageSize);
+        if (sizePart) {
+            size = ATLImageSizeForJSONData(sizePart.data);
+            size = ATLConstrainImageSizeToCellSize(size);
+        }
+        if (CGSizeEqualToSize(size, CGSizeZero)) {
+            size = ATLImageSizeForData(fullResImagePart.data); // Resort to image's size, if no dimensions metadata message parts found.
+        }
+        
+        // Fall-back to programatically requesting for a content download of single message part messages (Android compatibillity).
+        if ([[weakSelf.message valueForKeyPath:@"parts.MIMEType"] isEqual:@[ATLMIMETypeImageJPEG]]) {
+            if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferReadyForDownload)) {
+                NSError *error;
+                LYRProgress *progress = [fullResImagePart downloadContent:&error];
+                if (!progress) {
+                    NSLog(@"failed to request for a content download from the UI with error=%@", error);
+                }
+                [weakSelf.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
+            } else if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferDownloading)) {
+                [self updateCellWithProgress:fullResImagePart.progress];
+            } else {
+                [weakSelf.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
+            }
+        }
+        if (weakSelf.message != previousMessage) {
+            return;
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf.bubbleView updateWithImage:displayingImage width:size.width];
+        });
+    });
+}
+
+- (void)configureBubbleViewForVideoContent
+{
+    self.accessibilityLabel = ATLVideoAccessibilityLabel;
+    
+    LYRMessagePart *fullResVideoPart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeVideoMP4);
+    if (fullResVideoPart && ((fullResVideoPart.transferStatus == LYRContentTransferAwaitingUpload) || (fullResVideoPart.transferStatus == LYRContentTransferUploading))) {
+        [self updateCellWithProgress:fullResVideoPart.progress];
+    }
+    
+    UIImage *displayingImage;
+    LYRMessagePart *previewImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageJPEGPreview);
     if (previewImagePart.fileURL) {
         displayingImage = [UIImage imageWithContentsOfFile:previewImagePart.fileURL.path];
     } else {
@@ -169,45 +222,18 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     CGSize size = CGSizeZero;
     LYRMessagePart *sizePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageSize);
     if (sizePart) {
-        size = ATLImageSizeForJSONData(sizePart.data);
-        size = ATLConstrainImageSizeToCellSize(size);
+        CGSize fullSize = ATLImageSizeForJSONData(sizePart.data);
+        size = ATLConstrainImageSizeToCellSize(fullSize);
     }
-    if (CGSizeEqualToSize(size, CGSizeZero)) {
-        // Resort to image's size, if no dimensions metadata message parts found.
-        size = ATLImageSizeForData(fullResImagePart.data);
-    }
-    
-    // Fall-back to programatically requesting for a content download of
-    // single message part messages (Android compatibillity).
-    if ([[self.message valueForKeyPath:@"parts.MIMEType"] isEqual:@[ATLMIMETypeImageJPEG]]) {
-        if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferReadyForDownload)) {
-            NSError *error;
-            LYRProgress *progress = [fullResImagePart downloadContent:&error];
-            if (!progress) {
-                NSLog(@"failed to request for a content download from the UI with error=%@", error);
-            }
-            [self.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
-        } else if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferDownloading)) {
-            // Set self for delegation, if single image message part message
-            // hasn't been downloaded yet, or is still downloading.
-            LYRProgress *progress = fullResImagePart.progress;
-            [progress setDelegate:self];
-            self.progress = progress;
-            [self.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
-        } else {
-            [self.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
-        }
-    }
-    
-    [self.bubbleView updateWithImage:displayingImage width:size.width];
+    [self.bubbleView updateWithVideoThumbnail:displayingImage width:size.width];
 }
 
 - (void)configureBubbleViewForGIFContent
 {
     self.accessibilityLabel = ATLGIFAccessibilityLabel;
-    
-    LYRMessagePart *fullResImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageGIF);
 
+    LYRMessagePart *fullResImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageGIF);
+    
     if (fullResImagePart && ((fullResImagePart.transferStatus == LYRContentTransferAwaitingUpload) ||
                              (fullResImagePart.transferStatus == LYRContentTransferUploading))) {
         // Set self for delegation, if full resolution message part
@@ -220,53 +246,67 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
         [self.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
     }
     
-    UIImage *displayingImage;
+    __block UIImage *displayingImage;
     LYRMessagePart *previewImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageGIFPreview);
     
     if (!previewImagePart) {
         // If no preview image part found, resort to the full-resolution image.
         previewImagePart = fullResImagePart;
     }
+    __weak typeof(self) weakSelf = self;
+    __block LYRMessage *previousMessage = weakSelf.message;
     
-    if (previewImagePart.fileURL) {
-        displayingImage = ATLAnimatedImageWithAnimatedGIFURL(previewImagePart.fileURL);
-    } else if (previewImagePart.data) {
-        displayingImage = ATLAnimatedImageWithAnimatedGIFData(previewImagePart.data);
-    }
-    
-    CGSize size = CGSizeZero;
-    LYRMessagePart *sizePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageSize);
-    if (sizePart) {
-        size = ATLImageSizeForJSONData(sizePart.data);
-        size = ATLConstrainImageSizeToCellSize(size);
-    }
-    if (CGSizeEqualToSize(size, CGSizeZero)) {
-        // Resort to image's size, if no dimensions metadata message parts found.
-        size = ATLImageSizeForData(fullResImagePart.data);
-    }
-    
-    // For GIFs we only download full resolution parts when rendered in the UI
-    // Low res GIFs are autodownloaded but blurry
-    if ([fullResImagePart.MIMEType isEqualToString:ATLMIMETypeImageGIF]) {
-        if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferReadyForDownload)) {
-            NSError *error;
-            LYRProgress *progress = [fullResImagePart downloadContent:&error];
-            if (!progress) {
-                NSLog(@"failed to request for a content download from the UI with error=%@", error);
-            }
-            [self.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
-        } else if (fullResImagePart && (fullResImagePart.transferStatus == LYRContentTransferDownloading)) {
-            LYRProgress *progress = fullResImagePart.progress;
-            [progress setDelegate:self];
-            self.progress = progress;
-            [self.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
-        } else {
-            displayingImage = ATLAnimatedImageWithAnimatedGIFData(fullResImagePart.data);
-            [self.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
+    dispatch_async(self.imageProcessingConcurrentQueue, ^{
+        if (previewImagePart.fileURL) {
+            displayingImage = ATLAnimatedImageWithAnimatedGIFURL(previewImagePart.fileURL);
+        } else if (previewImagePart.data) {
+            displayingImage = ATLAnimatedImageWithAnimatedGIFData(previewImagePart.data);
         }
-    }
-    
-    [self.bubbleView updateWithImage:displayingImage width:size.width];
+        
+        CGSize size = CGSizeZero;
+        LYRMessagePart *sizePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageSize);
+        if (sizePart) {
+            size = ATLImageSizeForJSONData(sizePart.data);
+            size = ATLConstrainImageSizeToCellSize(size);
+        }
+        if (CGSizeEqualToSize(size, CGSizeZero)) {
+            // Resort to image's size, if no dimensions metadata message parts found.
+            size = ATLImageSizeForData(fullResImagePart.data);
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            // For GIFs we only download full resolution parts when rendered in the UI
+            // Low res GIFs are autodownloaded but blurry
+            if ([fullResImagePart.MIMEType isEqualToString:ATLMIMETypeImageGIF]) {
+                if (fullResImagePart.transferStatus == LYRContentTransferReadyForDownload) {
+                    NSError *error;
+                    LYRProgress *progress = [fullResImagePart downloadContent:&error];
+                    if (!progress) {
+                        NSLog(@"failed to request for a content download from the UI with error=%@", error);
+                    }
+                    [weakSelf.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
+                    [weakSelf.bubbleView updateWithImage:displayingImage width:size.width];
+                } else if (fullResImagePart.transferStatus == LYRContentTransferDownloading) {
+                    LYRProgress *progress = fullResImagePart.progress;
+                    [progress setDelegate:weakSelf];
+                    weakSelf.progress = progress;
+                    [weakSelf.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
+                    [weakSelf.bubbleView updateWithImage:displayingImage width:size.width];
+                } else {
+                    dispatch_async(weakSelf.imageProcessingConcurrentQueue, ^{
+                        displayingImage = ATLAnimatedImageWithAnimatedGIFData(fullResImagePart.data);
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            if (weakSelf.message != previousMessage) {
+                                return;
+                            }
+                            [weakSelf.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
+                            [weakSelf.bubbleView updateWithImage:displayingImage width:size.width];
+                        });
+                    });
+                }
+            }
+        });
+    });
 }
 
 - (void)configureBubbleViewForLocationContent
@@ -279,6 +319,13 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     double lon = [dictionary[ATLLocationLongitudeKey] doubleValue];
     [self.bubbleView updateWithLocation:CLLocationCoordinate2DMake(lat, lon)];
     [self.bubbleView updateProgressIndicatorWithProgress:0.0 visible:NO animated:NO];
+}
+
+- (void)updateCellWithProgress:(LYRProgress *)progress
+{
+    [progress setDelegate:self];
+    self.progress = progress;
+    [self.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
 }
 
 - (void)setMessageTextFont:(UIFont *)messageTextFont
@@ -299,16 +346,10 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     if ([self messageContainsTextContent]) [self configureBubbleViewForTextContent];
 }
 
-- (void)setBubbleViewColor:(UIColor *)bubbleViewColor
+- (void)setMessageTextCheckingTypes:(NSTextCheckingType)messageLinkTypes
 {
-    _bubbleViewColor = bubbleViewColor;
-    self.bubbleView.backgroundColor = bubbleViewColor;
-}
-
-- (void)setBubbleViewCornerRadius:(CGFloat)bubbleViewCornerRadius
-{
-    _bubbleViewCornerRadius = bubbleViewCornerRadius;
-    self.bubbleView.layer.cornerRadius = bubbleViewCornerRadius;
+    _messageTextCheckingTypes = messageLinkTypes;
+    self.bubbleView.textCheckingTypes = messageLinkTypes;
 }
 
 #pragma mark - LYRProgress Delegate Implementation
@@ -337,7 +378,7 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
 {
     NSDictionary *attributes = @{NSFontAttributeName : self.messageTextFont, NSForegroundColorAttributeName : self.messageTextColor};
     NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithString:text attributes:attributes];
-    NSArray *linkResults = ATLLinkResultsForText(text);
+    NSArray *linkResults = ATLTextCheckingResultsForText(text, self.messageTextCheckingTypes);
     for (NSTextCheckingResult *result in linkResults) {
         NSDictionary *linkAttributes = @{NSForegroundColorAttributeName : self.messageLinkTextColor,
                                          NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle)};
@@ -352,49 +393,44 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
     return [messagePart.MIMEType isEqualToString:ATLMIMETypeTextPlain];
 }
 
-- (void)configureLayoutConstraints
-{
-    CGFloat maxBubbleWidth = ATLMaxCellWidth() + ATLMessageBubbleLabelHorizontalPadding * 2;
-    [self.contentView addConstraint:[NSLayoutConstraint constraintWithItem:self.bubbleView attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationLessThanOrEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1.0 constant:maxBubbleWidth]];
-    [self.contentView addConstraint:[NSLayoutConstraint constraintWithItem:self.bubbleView attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:self.contentView attribute:NSLayoutAttributeHeight multiplier:1.0 constant:0]];
-    [self.contentView addConstraint:[NSLayoutConstraint constraintWithItem:self.bubbleView attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:self.contentView attribute:NSLayoutAttributeTop multiplier:1.0 constant:0]];
-}
-
-- (void)updateWithSender:(id<ATLParticipant>)sender
-{
-    // Implemented by subclass
-}
-
-- (void)shouldDisplayAvatarItem:(BOOL)shouldDisplayAvatarItem
-{
-    // Implemented by subclass
-}
-
-#pragma mark - Cell Height Calculations 
+#pragma mark - Cell Height Calculations
 
 + (CGFloat)cellHeightForMessage:(LYRMessage *)message inView:(UIView *)view
 {
-    LYRMessagePart *part = message.parts.firstObject;
-
-    CGFloat height = 0;
-    if ([part.MIMEType isEqualToString:ATLMIMETypeTextPlain]) {
-        height = [self cellHeightForTextMessage:message inView:view];
-    } else if ([part.MIMEType isEqualToString:ATLMIMETypeImageJPEG] || [part.MIMEType isEqualToString:ATLMIMETypeImagePNG] || [part.MIMEType isEqualToString:ATLMIMETypeImageGIF]) {
-        height = [self cellHeightForImageMessage:message];
-    } else if ([part.MIMEType isEqualToString:ATLMIMETypeLocation]) {
-        height = ATLMessageBubbleMapHeight;
-    }
+    CGFloat height = [[self class] cellSizeForMessage:message inView:view].height;
     if (height < ATLMessageCellMinimumHeight) height = ATLMessageCellMinimumHeight;
     height = ceil(height);
     return height;
 }
 
-+ (CGFloat)cellHeightForTextMessage:(LYRMessage *)message inView:(id)view
+#pragma mark - Cell Size Calculations
+
++ (CGSize)cellSizeForMessage:(LYRMessage *)message inView:(UIView *)view
 {
-    // Temporarily adding  the view to the hierarchy so that UIAppearance property values will be set based on containment.
+    if ([[self sharedHeightCache] objectForKey:message.identifier]) {
+        return [[[self sharedHeightCache] objectForKey:message.identifier] CGSizeValue];
+    }
+    
+    LYRMessagePart *part = message.parts.firstObject;
+    CGSize size = CGSizeZero;
+    if ([part.MIMEType isEqualToString:ATLMIMETypeTextPlain]) {
+        size = [[self class] cellSizeForTextMessage:message inView:view];
+    } else if ([part.MIMEType isEqualToString:ATLMIMETypeImageJPEG] || [part.MIMEType isEqualToString:ATLMIMETypeImagePNG] || [part.MIMEType isEqualToString:ATLMIMETypeImageGIF]|| [part.MIMEType isEqualToString:ATLMIMETypeVideoMP4]) {
+        size = [[self class] cellSizeForImageMessage:message];
+    } else if ([part.MIMEType isEqualToString:ATLMIMETypeLocation]) {
+        size.width = ATLMessageBubbleMapWidth;
+        size.height = ATLMessageBubbleMapHeight;
+    }
+    return size;
+}
+
++ (CGSize)cellSizeForTextMessage:(LYRMessage *)message inView:(id)view
+{
+    //  Adding  the view to the hierarchy so that UIAppearance property values will be set based on containment.
     ATLMessageCollectionViewCell *cell = [self sharedCell];
-    [view addSubview:cell];
-    [cell removeFromSuperview];
+    if (![view viewWithTag:kATLSharedCellTag]) {
+        [view addSubview:cell];
+    }
     
     LYRMessagePart *part = message.parts.firstObject;
     NSString *text = [[NSString alloc] initWithData:part.data encoding:NSUTF8StringEncoding];
@@ -403,16 +439,22 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
         font = cell.messageTextFont;
     }
     CGSize size = ATLTextPlainSize(text, font);
-    return size.height + ATLMessageBubbleLabelVerticalPadding * 2;
+    size.width += ATLMessageBubbleLabelHorizontalPadding * 2 + ATLMessageBubbleLabelWidthMargin;
+    size.height += ATLMessageBubbleLabelVerticalPadding * 2;
+    if (![[self sharedHeightCache] objectForKey:message.identifier]) {
+        [[self sharedHeightCache] setObject:[NSValue valueWithCGSize:size] forKey:message.identifier];
+    }
+    return size;
 }
 
-+ (CGFloat)cellHeightForImageMessage:(LYRMessage *)message
++ (CGSize)cellSizeForImageMessage:(LYRMessage *)message
 {
     CGSize size = CGSizeZero;
     LYRMessagePart *sizePart = ATLMessagePartForMIMEType(message, ATLMIMETypeImageSize);
     if (sizePart) {
         size = ATLImageSizeForJSONData(sizePart.data);
         size = ATLConstrainImageSizeToCellSize(size);
+        return size;
     }
     if (CGSizeEqualToSize(size, CGSizeZero)) {
         LYRMessagePart *imagePart = ATLMessagePartForMIMEType(message, ATLMIMETypeImageJPEGPreview);
@@ -431,7 +473,7 @@ CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
             size = ATLConstrainImageSizeToCellSize(CGSizeMake(3000, 4000));
         }
     }
-    return size.height;
+    return size;
 }
 
 @end

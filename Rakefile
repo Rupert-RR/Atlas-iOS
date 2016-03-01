@@ -55,7 +55,7 @@ task :init do
 end
 
 if defined?(XCTasks)
-  XCTasks::TestTask.new(test: :sim) do |t|
+  XCTasks::TestTask.new(:test) do |t|
     t.workspace = 'Atlas.xcworkspace'
     t.schemes_dir = 'Tests/Schemes'
     t.runner = :xcpretty
@@ -172,7 +172,7 @@ task :release => [:fetch_origin] do
     with_clean_env do
       podspec = File.join(root_dir, "Atlas.podspec")
       puts green("Pushing podspec to CocoaPods trunk")
-      run "pod trunk push --use-libraries #{podspec}"
+      run "pod trunk push --allow-warnings #{podspec}"
     end
   end
 end

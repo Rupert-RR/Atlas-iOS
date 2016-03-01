@@ -35,7 +35,7 @@
     [super viewDidLoad];
     self.dataSource = self;
     self.delegate = self;
-    self.deletionModes = @[@(LYRDeletionModeAllParticipants), @(LYRDeletionModeLocal)];
+    self.deletionModes = @[@(LYRDeletionModeAllParticipants), @(LYRDeletionModeMyDevices)];
     
     UIBarButtonItem *new = [[UIBarButtonItem alloc] initWithTitle:@"New" style:UIBarButtonItemStylePlain target:self action:@selector(handleNewTap)];
     self.navigationItem.rightBarButtonItem = new;
@@ -79,10 +79,10 @@
     return [ATLSampleConversationAvatarItem new];
 }
 
-- (void)conversationListViewController:(ATLConversationListViewController *)conversationListViewController didSearchForText:(NSString *)searchText completion:(void (^)(NSSet *))completion
+- (void)conversationListViewController:(ATLConversationListViewController *)conversationListViewController didSearchForText:(NSString *)searchText completion:(void (^)(NSSet <id<ATLParticipant>> *filteredParticipants))completion
 {
     NSSet *participants = [ATLUserMock allMockParticipants];
-    NSSet *filteredParticipants = [participants filteredSetUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.fullName CONTAINS %@", searchText]];
+    NSSet *filteredParticipants = [participants filteredSetUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.fullName CONTAINS[cd] %@", searchText]];
     completion(filteredParticipants);
 }
 

@@ -28,6 +28,7 @@
 /// @name Delegate
 ///---------------------------------------
 
+NS_ASSUME_NONNULL_BEGIN
 @protocol ATLAddressBarViewControllerDelegate <NSObject>
 
 @optional
@@ -105,6 +106,15 @@
  */
 @property (nonatomic) ATLAddressBarView *addressBarView;
 
+///----------------------
+// @name UI Configuration
+///----------------------
+
+/**
+ @abstract Whether the view controller should show avatars in the participant list. Default is NO.
+ */
+@property (nonatomic) BOOL shouldShowParticipantAvatars;
+
 ///------------------------------------
 // @name Managing Participant Selection
 ///------------------------------------
@@ -112,7 +122,7 @@
 /**
  @abstract An ordered set of the currently selected participants.
  */
-@property (nonatomic) NSOrderedSet *selectedParticipants;
+@property (nonatomic) NSOrderedSet <id<ATLParticipant>>*selectedParticipants;
 
 /**
  @abstract Informs the receiver that a selection occurred outside of the controller and a participant should be added to the address
@@ -145,3 +155,4 @@
 - (BOOL)isDisabled;
 
 @end
+NS_ASSUME_NONNULL_END

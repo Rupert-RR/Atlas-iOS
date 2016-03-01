@@ -21,25 +21,49 @@
 #import "ATLMessagingUtilities.h"
 #import "ATLErrors.h"
 #import <AssetsLibrary/AssetsLibrary.h>
+#import "ATLMessageCollectionViewCell.h"
 
 NSString *const ATLMIMETypeTextPlain = @"text/plain";
 NSString *const ATLMIMETypeTextHTML = @"text/HTML";
 NSString *const ATLMIMETypeImagePNG = @"image/png";
 NSString *const ATLMIMETypeImageGIF = @"image/gif";
+NSString *const ATLMIMETypeVideoQuickTime = @"video/quicktime";
 NSString *const ATLMIMETypeImageSize = @"application/json+imageSize";
 NSString *const ATLMIMETypeImageJPEG = @"image/jpeg";
 NSString *const ATLMIMETypeImageJPEGPreview = @"image/jpeg+preview";
 NSString *const ATLMIMETypeImageGIFPreview = @"image/gif+preview";
 NSString *const ATLMIMETypeLocation = @"location/coordinate";
 NSString *const ATLMIMETypeDate = @"text/date";
-
+NSString *const ATLMIMETypeVideoMP4 = @"video/mp4";
 NSUInteger const ATLDefaultThumbnailSize = 512;
 NSUInteger const ATLDefaultGIFThumbnailSize = 64;
 
+NSString *const ATLPasteboardImageKey = @"image";
 NSString *const ATLImagePreviewWidthKey = @"width";
 NSString *const ATLImagePreviewHeightKey = @"height";
 NSString *const ATLLocationLatitudeKey = @"lat";
 NSString *const ATLLocationLongitudeKey = @"lon";
+
+NSString *const ATLUserNotificationInlineReplyActionIdentifier = @"layer:///actions/inline-reply";
+NSString *const ATLUserNotificationDefaultActionsCategoryIdentifier = @"layer:///categories/default";
+
+#pragma mark - Push Support
+
+UIMutableUserNotificationCategory *ATLDefaultUserNotificationCategory()
+{
+    UIMutableUserNotificationAction *replyAction = [UIMutableUserNotificationAction new];
+    replyAction.identifier = ATLUserNotificationInlineReplyActionIdentifier;
+    replyAction.title = @"Reply";
+    replyAction.activationMode = UIUserNotificationActivationModeBackground;
+    replyAction.authenticationRequired = NO;
+    replyAction.behavior = UIUserNotificationActionBehaviorTextInput;
+    
+    UIMutableUserNotificationCategory *category = [UIMutableUserNotificationCategory new];
+    category.identifier = ATLUserNotificationDefaultActionsCategoryIdentifier;
+    [category setActions:@[ replyAction ] forContext:UIUserNotificationActionContextDefault];
+    
+    return category;
+}
 
 #pragma mark - Max Cell Dimensions
 
@@ -57,6 +81,7 @@ CGFloat ATLMaxCellHeight()
 
 CGSize ATLSizeProportionallyConstrainedToSize(CGSize nativeSize, CGSize maxSize)
 {
+    if (nativeSize.width < maxSize.width && nativeSize.height < maxSize.height) return nativeSize;
     CGSize itemSize;
     CGFloat widthScale = maxSize.width / nativeSize.width;
     CGFloat heightScale = maxSize.height / nativeSize.height;
@@ -128,6 +153,11 @@ CGRect ATLImageRectConstrainedToSize(CGSize imageSize, CGSize maxSize)
     return thumbRect;
 }
 
+CGFloat ATLDegreeToRadians(CGFloat degrees)
+{
+    return ((M_PI * degrees)/ 180);
+}
+
 #pragma mark - Private Message Part Helpers
 
 CGSize  ATLSizeFromOriginalSizeWithConstraint(CGSize originalSize, CGFloat constraint)
@@ -142,6 +172,24 @@ CGSize  ATLSizeFromOriginalSizeWithConstraint(CGSize originalSize, CGFloat const
     return originalSize;
 }
 
+#pragma mark - Message Utilities
+
+LYRMessage *ATLMessageForParts(LYRClient *layerClient, NSArray *messageParts, NSString *pushText, NSString *pushSound)
+{
+    LYRPushNotificationConfiguration *defaultConfiguration = [LYRPushNotificationConfiguration new];
+    defaultConfiguration.alert = pushText;
+    defaultConfiguration.sound = pushSound;
+    defaultConfiguration.category = ATLUserNotificationDefaultActionsCategoryIdentifier;
+    
+    NSDictionary *options = @{ LYRMessageOptionsPushNotificationConfigurationKey: defaultConfiguration };
+    NSError *error;
+    LYRMessage *message = [layerClient newMessageWithParts:messageParts options:options error:&error];
+    if (error) {
+        return nil;
+    }
+    return message;
+}
+
 #pragma mark - Message Parts Utilities
 
 NSArray *ATLMessagePartsWithMediaAttachment(ATLMediaAttachment *mediaAttachment)
@@ -149,6 +197,10 @@ NSArray *ATLMessagePartsWithMediaAttachment(ATLMediaAttachment *mediaAttachment)
     NSMutableArray *messageParts = [NSMutableArray array];
     if (!mediaAttachment.mediaInputStream) {
         @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"Cannot create an LYRMessagePart with `nil` mediaInputStream." userInfo:nil];
+    }
+    
+    if ([mediaAttachment.mediaMIMEType isEqualToString:ATLMIMETypeTextPlain]) {
+        return @[[LYRMessagePart messagePartWithText:mediaAttachment.textRepresentation]];
     }
     
     // Create the message part for the main media (should be on index zero).
@@ -187,7 +239,7 @@ void ATLAssetURLOfLastPhotoTaken(void(^completionHandler)(NSURL *assetURL, NSErr
         if (!group) return;
 
         // Within the group enumeration block, filter to enumerate just photos.
-        [group setAssetsFilter:[ALAssetsFilter allPhotos]];
+        [group setAssetsFilter:[ALAssetsFilter allAssets]];
 
         if ([group numberOfAssets] == 0) {
             completionHandler(nil, [NSError errorWithDomain:ATLErrorDomain code:ATLErrorNoPhotos userInfo:@{NSLocalizedDescriptionKey: @"There are no photos."}]);
@@ -265,13 +317,32 @@ UIImage *ATLPinPhotoForSnapshot(MKMapSnapshot *snapshot, CLLocationCoordinate2D 
     return finalImage;
 }
 
-NSArray *ATLLinkResultsForText(NSString *text)
+NSArray *ATLTextCheckingResultsForText(NSString *text, NSTextCheckingType linkTypes)
 {
     if (!text) return nil;
     
     NSError *error;
-    NSDataDetector *detector = [NSDataDetector dataDetectorWithTypes:NSTextCheckingTypeLink
+    NSDataDetector *detector = [NSDataDetector dataDetectorWithTypes:linkTypes
                                                                error:&error];
     if (error) return nil;
     return [detector matchesInString:text options:kNilOptions range:NSMakeRange(0, text.length)];
+}
+
+NSBundle *ATLResourcesBundle(void)
+{
+    NSBundle *bundlePath = [NSBundle bundleWithIdentifier:@"org.cocoapods.Atlas"];
+    NSString *path = [bundlePath pathForResource:@"AtlasResource" ofType:@"bundle"];
+    NSBundle *resourcesBundle = [NSBundle bundleWithPath:path];
+    if (resourcesBundle) {
+        return resourcesBundle;
+    }
+    NSString *resourcesBundlePath = [[NSBundle mainBundle] pathForResource:@"AtlasResource" ofType:@"bundle"];
+    if (resourcesBundlePath) {
+        return [NSBundle bundleWithPath:resourcesBundlePath];
+    } else {
+        NSBundle *parentBundle = [NSBundle bundleForClass:[ATLMessageCollectionViewCell class]];
+        NSBundle *resourcesBundle = [NSBundle bundleWithPath:[parentBundle pathForResource:@"AtlasResource" ofType:@"bundle"]];
+        if (!resourcesBundle) [NSException raise:NSInternalInconsistencyException format:@"Failed to locate `resources.bundle` in %@", resourcesBundle];
+        return resourcesBundle;
+    }
 }

@@ -11,7 +11,7 @@ Atlas is a lightweight, flexible set of user interface components designed to en
 
 ## Overview
 
-Atlas provides several complete user interface experiences as well as a large library of individual views. It was designed to address three use cases simulatenously:
+Atlas provides several complete user interface experiences as well as a large library of individual views. It was designed to address three use cases simultaneously:
 
 1. Provide good looking, high quality implementations of familiar messaging experiences out of the box. By default Atlas is styled to look much like iMessage.
 2. Enable quick and easy branding of the user experience via integration with `UIAppearance` and Interface Builder. All fonts, colors, etc. can be customized via an extensive set of `UIAppearance` selectors. This enables developers to quickly add messaging to an existing application and match the components with the existing style.
@@ -64,11 +64,11 @@ The table below details the most important classes in Atlas and is hyperlinked d
     </tr>
     <tr>
         <td><a href="Code/Protocols/ATLParticipant.h">ATLParticipant</a></td>
-        <td>A protocol adopted by objects that wish to represent participants in a Converation.</td>
+        <td>A protocol adopted by objects that wish to represent participants in a Conversation.</td>
     </tr>
     <tr>
         <td><a href="Code/Protocols/ATLParticipant.h">ATLParticipantPresenting</a></td>
-        <td>A protocol adopted by objects that wish to represent participants in a Converation.</td>
+        <td>A protocol adopted by objects that wish to represent participants in a Conversation.</td>
     </tr>
     <tr><th colspan="2" style="text-align:center;">Views</th></tr>
     <tr>
@@ -81,7 +81,7 @@ The table below details the most important classes in Atlas and is hyperlinked d
     </tr>
 </table>
 
-The complete API documentation can be found on [CocoaDocs](http://cocoadocs.org/docsets/Atlas/1.0.0/).
+The complete API documentation can be found on [CocoaDocs](http://cocoadocs.org/docsets/Atlas/).
 
 ## Installation
 
@@ -110,6 +110,33 @@ $ pod install
 
 These instructions will setup your local CocoaPods environment and import Atlas into your project.
 
+#### Carthage Installation
+
+Atlas and LayerKit also support installation via [Carthage](https://github.com/Carthage/Carthage). Carthage is a simple decentralized package manager that is designed to be as simple as possible. Carthage will not make any modifications to your project, so installation is moderately more involved than with CocoaPods. To get started, ensure that you have [installed Carthage](https://github.com/Carthage/Carthage#installing-carthage) and then create a `Cartfile` with the following content:
+
+```
+github "layerhq/Atlas-iOS"
+```
+
+Next bootstrap your environment by executing `carthage update`:
+
+```
+$ carthage update
+```
+
+Next drag `LayerKit.framework` and `Atlas.framework` from `Carthage/Build/iOS` onto your project and link it with your application target. Then select your application target within Xcode, navigate to the *Build Phases* panel and click the `+` icon and select *New Run Script Phase*. Set the content to:
+
+```sh
+/usr/local/bin/carthage copy-frameworks
+```
+
+In the *Input Files* section add:
+
+* $(SRCROOT)/Carthage/Build/iOS/LayerKit.framework
+* $(SRCROOT)/Carthage/Build/iOS/Atlas.framework
+
+Now build your application target and everything should be set.
+
 #### Source Code Installation
 
 If you wish to install Atlas directly into your application from source, then clone the repository and add code and resources to your application:
@@ -118,7 +145,7 @@ If you wish to install Atlas directly into your application from source, then cl
 2. Update your project settings to include the linker flags: `-ObjC -lz`
 3. Add the following Cocoa SDK frameworks to your project: `'CFNetwork', 'Security', 'MobileCoreServices', 'SystemConfiguration', 'CoreLocation', 'AssetsLibrary', 'ImageIO'`
 
-**Please note that LayerKit is a dependecy of `Atlas`. When manually installing `Atlas`, the same must be done with `LayerKit`. Instructions on doing so can be found in the [LayerKit releases repository](https://github.com/layerhq/releases-ios#framework-installation).**
+**Please note that LayerKit is a dependency of `Atlas`. When manually installing `Atlas`, the same must be done with `LayerKit`. Instructions on doing so can be found in the [LayerKit releases repository](https://github.com/layerhq/releases-ios#framework-installation).**
 
 Build and run your project to verify installation was successful.
 
@@ -136,9 +163,12 @@ Layer Messages include an arbitrary number of message parts. Each message part i
 ```objc
 NSString *ATLMIMETypeTextPlain; // text/plain
 NSString *ATLMIMETypeImagePNG;  // image/png
-NSString *ATLMIMETypeImageJPEG;  // image/jpeg
+NSString *ATLMIMETypeImageJPEG; // image/jpeg
+NSString *ATLMIMETypeImageGIF;  // image/gif
 NSString *ATLMIMETypeLocation;  // location
 ```
+
+**Note:** Set `LYRClient` property `autoDownloadMIMETypes` to include `ATLMIMETypeImageJPEGPreview` and `ATLMIMETypeImageGIFPreview` for the Atlas UI to render previews correctly.
 
 ## Component Details
 
@@ -277,6 +307,26 @@ Atlas takes advantage of Apple's `UIAppearance` protocol which lets you change U
 @property (nonatomic) UIFont *titleFont
 @property (nonatomic) UIFont *boldTitleFont
 @property (nonatomic) UIColor *titleColor
+```
+
+## Custom Message Bubbles
+
+Applications that wish to take advantage of the Atlas message bubble appearance in the [ATLMessageCollectionViewCell](Code/Views/ATLMessageCollectionViewCell.h), but wish to display their own UI inside of the bubble, should create a subclass of [ATLBaseCollectionViewCell](Code/Views/ATLBaseCollectionViewCell.h).
+
+Applications should add their subviews to the `bubbleView` property of the subclass, and configure the bubble width by calling `updateBubbleWidth:`.
+
+```
+[self updateBubbleWidth:<cell_width>];
+```
+
+Additionally, applications can specify if a cell is incoming or outgoing by calling `configureCellForType:`. Outgoing cells will be anchored to the right hand side of the collection view, and incoming cells will be anchored to the left.
+
+```    
+[self configureCellForType:ATLOutgoingCellType];
+
+or
+
+[self configureCellForType:ATLIncomingCellType];
 ```
 
 ## Contributing

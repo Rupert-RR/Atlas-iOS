@@ -19,9 +19,10 @@
 //
 
 #import <UIKit/UIKit.h>
-#import <LayerKit/LayerKit.h>
+@import LayerKit;
 #import "ATLConversationTableViewCell.h"
 #import "ATLAvatarItem.h"
+#import "ATLParticipant.h"
 
 @class ATLConversationListViewController;
 
@@ -29,6 +30,7 @@
 /// @name Delegate
 ///---------------------------------------
 
+NS_ASSUME_NONNULL_BEGIN
 @protocol ATLConversationListViewControllerDelegate <NSObject>
 
 /**
@@ -63,7 +65,7 @@
  @param searchText The search text that was used for search.
  @param completion The block has has no return value and accepts a single argument: an NSSet of objects conforming to the ATLParticipant protocol that were found to match the search text.
  */
-- (void)conversationListViewController:(ATLConversationListViewController *)conversationListViewController didSearchForText:(NSString *)searchText completion:(void (^)(NSSet *filteredParticipants))completion;
+- (void)conversationListViewController:(ATLConversationListViewController *)conversationListViewController didSearchForText:(NSString *)searchText completion:(void (^)(NSSet <id<ATLParticipant>>*filteredParticipants))completion;
 
 @end
 
@@ -163,11 +165,11 @@
 + (instancetype)conversationListViewControllerWithLayerClient:(LYRClient *)layerClient;
 
 /**
- @abstract Creates and returns a new conversation list initialized with a given `LYRClient` object.
+ @abstract Initializes a new `ATLConversationListViewController` object with the given `LYRClient` object.
  @param layerClient The `LYRClient` object from which conversations will be fetched for display.
- @return An `LYRConversationListViewController` object.
+ @return An `LYRConversationListViewController` object initialized with the given `LYRClient` object.
  */
-- (instancetype)initWithLayerClient:(LYRClient *)layerClient NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithLayerClient:(LYRClient *)layerClient;
 
 ///-------------------------------------------------------
 /// @name Configuring Layer Client, Delegate & Data Source
@@ -181,9 +183,10 @@
 @property (nonatomic) LYRClient *layerClient;
 
 /**
- @abstract The query controller used to load conversations for the table view
+ @abstract The `LYRQueryController` object managing data displayed in the controller.
  */
 @property (nonatomic, readonly) LYRQueryController *queryController;
+
 /**
  @abstract The object that is informed when specific events occur
  within the `LYRConversationListViewController`.
@@ -214,7 +217,7 @@
  @default `LYRDeletionModeLocal` and `LYRDeletionModeAllParticipants.
  @raises NSInternalInconsistencyException Raised if the value is mutated after the receiver has been presented.
  */
-@property (nonatomic) NSArray *deletionModes;
+@property (nonatomic) NSArray <NSNumber*> *deletionModes;
 
 /**
  @abstract Informs the receiver if it should display an avatar item representing a conversation.
@@ -248,8 +251,18 @@
 /**
  @abstract The controller used to display search results.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 @property (nonatomic, readonly) UISearchDisplayController *searchController;
+#pragma GCC diagnostic pop
 
+/**
+ @abstract A boolean value that determines if the controller should show a search bar and search display controller.
+ @discussion When `YES`, a search bar with a search display controller is shown on top of the tableview.
+ Should be set before the controller is presented on screen.
+ @default `YES`.
+ */
+@property (nonatomic, assign) BOOL shouldDisplaySearchController;
 
 ///------------------------------
 /// @name Reloading Conversations
@@ -262,3 +275,4 @@
 - (void)reloadCellForConversation:(LYRConversation *)conversation;
 
 @end
+NS_ASSUME_NONNULL_END
