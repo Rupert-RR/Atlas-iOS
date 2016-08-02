@@ -31,7 +31,7 @@ extern NSString *const ATLAddContactsButtonAccessibilityLabel;
     [super setUp];
     
     ATLUserMock *mockUser = [ATLUserMock userWithMockUserName:ATLMockUserNameBlake];
-    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser.participantIdentifier];
+    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser.userID];
     self.testInterface = [ATLTestInterface testIntefaceWithLayerClient:layerClient];
     
     self.viewController = [ATLSampleConversationViewController conversationViewControllerWithLayerClient:(LYRClient *)self.testInterface.layerClient];
@@ -67,7 +67,7 @@ extern NSString *const ATLAddContactsButtonAccessibilityLabel;
         expect(controller).to.beKindOf([ATLAddressBarViewController class]);
     }] addressBarViewControllerDidBeginSearching:[OCMArg any]];
     
-    [tester enterText:@"test" intoViewWithAccessibilityLabel:ATLAddressBarTextViewAccesssibilityLabel];
+    [tester enterText:@"Test" intoViewWithAccessibilityLabel:ATLAddressBarTextViewAccesssibilityLabel];
     [delegateMock verify];
 }
 
@@ -185,7 +185,7 @@ extern NSString *const ATLAddContactsButtonAccessibilityLabel;
     
     ATLUserMock *mock = [ATLUserMock userWithMockUserName:ATLMockUserNameKlemen];
     [addressBar selectParticipant:mock];
-    expect(addressBar.addressBarView.addressBarTextView.text).to.contain(mock.fullName);
+    expect(addressBar.addressBarView.addressBarTextView.text).to.contain(mock.displayName);
 }
 
 - (void)testToVerifyDisableFunctionality

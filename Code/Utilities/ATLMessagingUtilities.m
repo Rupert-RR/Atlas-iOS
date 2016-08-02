@@ -158,6 +158,19 @@ CGFloat ATLDegreeToRadians(CGFloat degrees)
     return ((M_PI * degrees)/ 180);
 }
 
+#pragma mark - Conversation Helpers
+
+LYRIdentity *ATLIdentityFromSet(NSString *userID, NSSet *participants)
+{
+    for (LYRIdentity *identity in participants) {
+        if ([identity.userID isEqualToString:userID]) {
+            return identity;
+        }
+    }
+    return nil;
+}
+
+
 #pragma mark - Private Message Part Helpers
 
 CGSize  ATLSizeFromOriginalSizeWithConstraint(CGSize originalSize, CGFloat constraint)
@@ -181,9 +194,10 @@ LYRMessage *ATLMessageForParts(LYRClient *layerClient, NSArray *messageParts, NS
     defaultConfiguration.sound = pushSound;
     defaultConfiguration.category = ATLUserNotificationDefaultActionsCategoryIdentifier;
     
-    NSDictionary *options = @{ LYRMessageOptionsPushNotificationConfigurationKey: defaultConfiguration };
+    LYRMessageOptions *messageOptions = [LYRMessageOptions new];
+    messageOptions.pushNotificationConfiguration = defaultConfiguration;
     NSError *error;
-    LYRMessage *message = [layerClient newMessageWithParts:messageParts options:options error:&error];
+    LYRMessage *message = [layerClient newMessageWithParts:messageParts options:messageOptions error:&error];
     if (error) {
         return nil;
     }
@@ -330,12 +344,19 @@ NSArray *ATLTextCheckingResultsForText(NSString *text, NSTextCheckingType linkTy
 
 NSBundle *ATLResourcesBundle(void)
 {
+    // CocoaPods resource bundle
     NSBundle *bundlePath = [NSBundle bundleWithIdentifier:@"org.cocoapods.Atlas"];
     NSString *path = [bundlePath pathForResource:@"AtlasResource" ofType:@"bundle"];
     NSBundle *resourcesBundle = [NSBundle bundleWithPath:path];
     if (resourcesBundle) {
         return resourcesBundle;
     }
+    // Carthage resources
+    NSBundle *atlasBundle = [NSBundle bundleWithIdentifier:@"com.layer.Atlas"];
+    if (atlasBundle) {
+        return atlasBundle;
+    }
+    
     NSString *resourcesBundlePath = [[NSBundle mainBundle] pathForResource:@"AtlasResource" ofType:@"bundle"];
     if (resourcesBundlePath) {
         return [NSBundle bundleWithPath:resourcesBundlePath];

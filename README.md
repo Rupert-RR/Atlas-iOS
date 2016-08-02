@@ -19,6 +19,10 @@ Atlas provides several complete user interface experiences as well as a large li
 
 Atlas is deeply and directly integrated with LayerKit. This enables maximum integration with the communications API's and keeps the user interface components very clean, simple and lightweight. LayerKit provides three foundational models (Conversations, Messages, and Message Parts) and a querying system for accessing the messaging data. These models and the querying functionality are used to drive the Atlas UI components.
 
+#### Requirements
+
+Atlas requires iOS >= **8.0**. The LayerKit version requirements for each release are tightly coupled. See the release notes for details about specifics.
+
 ### Example App
 
 To make it easier to get started with Atlas, we've provided the [Atlas Messenger](https://github.com/layerhq/Atlas-Messenger-iOS) example application. Build instructions accompany the source code on the repository. Alternately, you can check out Atlas within a Layer sandbox of your very own by visiting the [Experience Atlas](https://developer.layer.com/dashboard/signup/atlas) page.
@@ -124,7 +128,7 @@ Next bootstrap your environment by executing `carthage update`:
 $ carthage update
 ```
 
-Next drag `LayerKit.framework` and `Atlas.framework` from `Carthage/Build/iOS` onto your project and link it with your application target. Then select your application target within Xcode, navigate to the *Build Phases* panel and click the `+` icon and select *New Run Script Phase*. Set the content to:
+Next drag `Atlas.framework` and `LayerKit.framework` from `Carthage/Build/iOS` onto your project and link it with your application target. Then select your application target within Xcode, navigate to the *Build Phases* panel and click the `+` icon and select *New Run Script Phase*. Set the content to:
 
 ```sh
 /usr/local/bin/carthage copy-frameworks
@@ -132,8 +136,8 @@ Next drag `LayerKit.framework` and `Atlas.framework` from `Carthage/Build/iOS` o
 
 In the *Input Files* section add:
 
-* $(SRCROOT)/Carthage/Build/iOS/LayerKit.framework
-* $(SRCROOT)/Carthage/Build/iOS/Atlas.framework
+* `$(SRCROOT)/Carthage/Build/iOS/LayerKit.framework`
+* `$(SRCROOT)/Carthage/Build/iOS/Atlas.framework`
 
 Now build your application target and everything should be set.
 

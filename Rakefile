@@ -58,14 +58,15 @@ if defined?(XCTasks)
   XCTasks::TestTask.new(:test) do |t|
     t.workspace = 'Atlas.xcworkspace'
     t.schemes_dir = 'Tests/Schemes'
-    t.runner = :xcpretty
+    t.runner = :xctool
+    t.actions = %w{clean build test -resetSimulator}
     t.output_log = 'xcodebuild.log'
-    t.subtasks = { progammatic: 'ProgrammaticTests'}
+    t.subtasks = { progammatic: 'Programmatic'}
     t.destination do |d|
       d.platform = :iossimulator
       d.os = :latest
       d.name = 'iPhone 6 Plus'
-    end    
+    end
   end
 end
 
@@ -172,8 +173,10 @@ task :release => [:fetch_origin] do
     with_clean_env do
       podspec = File.join(root_dir, "Atlas.podspec")
       puts green("Pushing podspec to CocoaPods trunk")
-      run "pod trunk push --allow-warnings #{podspec}"
+      run "rbenv exec bundle exec pod trunk push --allow-warnings #{podspec}"
     end
+    
+    Rake::Task["publish_github_release"].invoke
   end
 end
 
@@ -212,4 +215,60 @@ end
 
 def grey(string)
  "\033[0;37m#{string}\033[0m"
+end
+
+def changelog_for_version(version)
+  capturing = false
+  Array.new.tap do |release_notes|
+    File.read('./CHANGELOG.md').each_line do |line|
+      if line =~ /^\#\#\s#{Regexp.escape(version)}$/
+        capturing = true
+      else
+        if line =~ /^\#\#\s[\d\.]+$/
+          capturing = false
+        else
+          if capturing
+            release_notes << line
+          end
+        end
+      end
+    end
+  end.join
+end
+
+def current_version
+  root_dir = File.expand_path(File.dirname(__FILE__))
+  path = File.join(root_dir, 'Atlas.podspec')
+  File.read(path).match(/\.version\s+=\s+['"](.+)['"]$/)[1]
+end
+
+desc "Publishes a Github release including the changelog"
+task :publish_github_release do
+  if ENV['GITHUB_TOKEN']
+    require 'json'
+    run "rm -rf ~/Library/Caches/com.layer.Atlas"
+    version = ENV['VERSION'] || current_version
+    version_tag = "v#{version}"
+    release_notes = changelog_for_version(version)
+    puts "Creating Github release #{version_tag}..."
+    puts "Release Notes:\n#{release_notes}"
+    release = { tag_name: version_tag, body: release_notes }
+    uri = URI('https://api.github.com/repos/layerhq/Atlas-iOS/releases')
+    request = Net::HTTP::Post.new(uri)
+    request.basic_auth ENV['GITHUB_TOKEN'], 'x-oauth-basic'
+    request.body = JSON.generate(release)
+    request["Content-Type"] = "application/json"
+    http = Net::HTTP.new(uri.hostname, uri.port)
+    http.use_ssl = true
+    response = http.request(request)
+    puts "Got response: #{response}"
+    release = JSON.parse(response.body)
+    puts "Created release: #{release.inspect}"
+  else
+    puts "!! Cannot create Github release on releases-ios: Please configure a personal Github token and export it as the `GITHUB_TOKEN` environment variable."
+  end
+end
+
+task :extract_changelog do
+  puts changelog_for_version(current_version)
 end

@@ -29,7 +29,7 @@
 
 @implementation LYRMockContentStore
 
-+ (id)sharedStore
++ (instancetype)sharedStore
 {
     static LYRMockContentStore *sharedStore = nil;
     static dispatch_once_t onceToken;
@@ -39,7 +39,7 @@
     return sharedStore;
 }
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (self) {
@@ -63,7 +63,7 @@
 {
     self.authenticatedUserID = authenticatedUserID;
     ATLUserMock *user = [ATLUserMock randomUser];
-    LYRConversationMock *conversation = [LYRConversationMock newConversationWithParticipants:[NSSet setWithObjects:user.participantIdentifier, self.authenticatedUserID, nil] options:nil];
+    LYRConversationMock *conversation = [LYRConversationMock newConversationWithParticipants:[NSSet setWithObjects:user.userID, self.authenticatedUserID, nil] options:nil];
     [self hydrateMessagesForConversation:conversation];
 }
 
@@ -77,7 +77,7 @@
 - (void)hydrateMessagesForConversation:(LYRConversationMock *)conversation
 {
     // Get the other participants ID
-    NSMutableSet *participantCopy = [conversation.participants mutableCopy];
+    NSMutableSet *participantCopy = [[conversation.participants valueForKey:@"userID"] mutableCopy];
     [participantCopy minusSet:[NSSet setWithObject:self.authenticatedUserID]];
     NSString *participant = [[participantCopy allObjects] lastObject];
     
@@ -243,6 +243,9 @@
 
 - (NSPredicate *)constructPredicateForMockPredicate:(LYRPredicate *)predicate
 {
+    if ([predicate.property isEqualToString:@"participants"]) {
+        predicate = [LYRPredicate predicateWithProperty:@"participants.userID" predicateOperator:predicate.predicateOperator value:predicate.value];
+    }
     switch (predicate.predicateOperator) {
         case LYRPredicateOperatorIsEqualTo:
             return [NSPredicate predicateWithFormat:@"SELF.%@ == %@", predicate.property, predicate.value];

@@ -1,9 +1,9 @@
 //
-//  Atlas.m
+//  LYRIdentity+ATLParticipant.m
 //  Atlas
 //
-//  Created by Kevin Coleman on 10/27/14.
-//  Copyright (c) 2015 Layer. All rights reserved.
+//  Created by Kabir Mahal on 2/17/16.
+//  Copyright (c) 2016 Layer. All rights reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,6 +18,21 @@
 //  limitations under the License.
 //
 
-#import "Atlas.h"
+#import "LYRIdentity+ATLParticipant.h"
 
-NSString *const ATLVersionString = @"1.0.26";
+@implementation LYRIdentity (ATLParticipant)
+
+- (NSString *)avatarInitials
+{
+    if (self.firstName && self.lastName) {
+        return [NSString stringWithFormat:@"%@%@", [self.firstName substringToIndex:1], [self.lastName substringToIndex:1]];
+    }
+    return [self.displayName substringToIndex:2];
+}
+
+- (UIImage *)avatarImage
+{
+    return nil;
+}
+
+@end

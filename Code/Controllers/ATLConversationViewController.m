@@ -30,6 +30,7 @@
 #import "ATLConversationDataSource.h"
 #import "ATLMediaAttachment.h"
 #import "ATLLocationManager.h"
+#import "LYRIdentity+ATLParticipant.h"
 
 @import AVFoundation;
 
@@ -50,6 +51,7 @@
 @property (nonatomic) BOOL shouldShareLocation;
 @property (nonatomic) BOOL canDisableAddressBar;
 @property (nonatomic) dispatch_queue_t animationQueue;
+@property (nonatomic) BOOL expandingPaginationWindow;
 
 @end
 
@@ -254,7 +256,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     }
     self.conversationDataSource.queryController.delegate = self;
     self.queryController = self.conversationDataSource.queryController;
-    self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
+    self.showingMoreMessagesIndicator = NO;
     [self.collectionView reloadData];
 }
 
@@ -263,8 +265,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)configureControllerForConversation
 {
     // Configure avatar image display
-    NSMutableSet *otherParticipantIDs = [self.conversation.participants mutableCopy];
-    if (self.layerClient.authenticatedUserID) [otherParticipantIDs removeObject:self.layerClient.authenticatedUserID];
+    NSMutableSet *otherParticipantIDs = [[self.conversation.participants valueForKey:@"userID"] mutableCopy];
+    if (self.layerClient.authenticatedUser) [otherParticipantIDs removeObject:self.layerClient.authenticatedUser.userID];
     self.shouldDisplayAvatarItem = (otherParticipantIDs.count > 1) ? YES : self.shouldDisplayAvatarItemForOneOtherParticipant;
     
     // Configure message bar button enablement
@@ -283,9 +285,9 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (!self.dataSource) return;
     if (!self.addressBarController) return;
     
-    NSMutableOrderedSet *participantIdentifiers = [NSMutableOrderedSet orderedSetWithSet:self.conversation.participants];
-    if ([participantIdentifiers containsObject:self.layerClient.authenticatedUserID]) {
-        [participantIdentifiers removeObject:self.layerClient.authenticatedUserID];
+    NSMutableOrderedSet *participantIdentifiers = [NSMutableOrderedSet orderedSetWithSet:[self.conversation.participants valueForKey:@"userID"]];
+    if ([participantIdentifiers containsObject:self.layerClient.authenticatedUser.userID]) {
+        [participantIdentifiers removeObject:self.layerClient.authenticatedUser.userID];
     }
     [self.addressBarController setSelectedParticipants:[self participantsForIdentifiers:participantIdentifiers]];
 }
@@ -420,11 +422,11 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)configureCell:(UICollectionViewCell<ATLMessagePresenting> *)cell forMessage:(LYRMessage *)message indexPath:(NSIndexPath *)indexPath
 {
     [cell presentMessage:message];
-    BOOL willDisplayAvatarItem = (![message.sender.userID isEqualToString:self.layerClient.authenticatedUserID]) ? self.shouldDisplayAvatarItem : (self.shouldDisplayAvatarItem && self.shouldDisplayAvatarItemForAuthenticatedUser);
+    BOOL willDisplayAvatarItem = (![message.sender.userID isEqualToString:self.layerClient.authenticatedUser.userID]) ? self.shouldDisplayAvatarItem : (self.shouldDisplayAvatarItem && self.shouldDisplayAvatarItemForAuthenticatedUser);
     [cell shouldDisplayAvatarItem:willDisplayAvatarItem];
     
     if ([self shouldDisplayAvatarItemAtIndexPath:indexPath]) {
-        [cell updateWithSender:[self participantForIdentifier:message.sender.userID]];
+        [cell updateWithSender:[self participantForIdentity:message.sender]];
     } else {
         [cell updateWithSender:nil];
     }
@@ -465,7 +467,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (CGFloat)defaultCellHeightForItemAtIndexPath:(NSIndexPath *)indexPath
 {
     LYRMessage *message = [self.conversationDataSource messageAtCollectionViewIndexPath:indexPath];
-    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUserID]) {
+    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUser.userID]) {
         return [ATLOutgoingMessageCollectionViewCell cellHeightForMessage:message inView:self.view];
     } else {
         return [ATLIncomingMessageCollectionViewCell cellHeightForMessage:message inView:self.view];
@@ -494,7 +496,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (self.conversation.participants.count <= 2) return NO;
     
     LYRMessage *message = [self.conversationDataSource messageAtCollectionViewSection:section];
-    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUserID]) return NO;
+    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUser.userID]) return NO;
     if (section > ATLNumberOfSectionsBeforeFirstMessageSection) {
         LYRMessage *previousMessage = [self.conversationDataSource messageAtCollectionViewSection:section - 1];
         if ([previousMessage.sender.userID isEqualToString:message.sender.userID]) {
@@ -511,7 +513,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     NSInteger lastSection = [self.conversationDataSource collectionViewSectionForQueryControllerRow:lastQueryControllerRow];
     if (section != lastSection) return NO;
     LYRMessage *message = [self.conversationDataSource messageAtCollectionViewSection:section];
-    if (![message.sender.userID isEqualToString:self.layerClient.authenticatedUserID]) return NO;
+    if (![message.sender.userID isEqualToString:self.layerClient.authenticatedUser.userID]) return NO;
     
     return YES;
 }
@@ -539,7 +541,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         return NO;
     }
     
-    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUserID] && !self.shouldDisplayAvatarItemForAuthenticatedUser) {
+    if ([message.sender.userID isEqualToString:self.layerClient.authenticatedUser.userID] && !self.shouldDisplayAvatarItemForAuthenticatedUser) {
         return NO;
     }
     if (![self shouldClusterMessageAtSection:indexPath.section] && self.avatarItemDisplayFrequency == ATLAvatarItemDisplayFrequencyCluster) {
@@ -595,13 +597,13 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)messageInputToolbarDidType:(ATLMessageInputToolbar *)messageInputToolbar
 {
     if (!self.conversation) return;
-    [self.conversation sendTypingIndicator:LYRTypingDidBegin];
+    [self.conversation sendTypingIndicator:LYRTypingIndicatorActionBegin];
 }
 
 - (void)messageInputToolbarDidEndTyping:(ATLMessageInputToolbar *)messageInputToolbar
 {
     if (!self.conversation) return;
-    [self.conversation sendTypingIndicator:LYRTypingDidFinish];
+    [self.conversation sendTypingIndicator:LYRTypingIndicatorActionFinish];
 }
 
 #pragma mark - Message Sending
@@ -619,7 +621,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 
 - (LYRMessage *)messageForMessageParts:(NSArray *)parts MIMEType:(NSString *)MIMEType pushText:(NSString *)pushText;
 {
-    NSString *senderName = [[self participantForIdentifier:self.layerClient.authenticatedUserID] fullName];
+    NSString *senderName = [[self participantForIdentity:self.layerClient.authenticatedUser] displayName];
     NSString *completePushText;
     if (!pushText) {
         if ([MIMEType isEqualToString:ATLMIMETypeImageGIF]) {
@@ -784,14 +786,12 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (!self.conversation) return;
     if (!notification.object) return;
     if (![notification.object isEqual:self.conversation]) return;
-    
-    NSString *participantID = notification.userInfo[LYRTypingIndicatorParticipantUserInfoKey];
-    NSNumber *statusNumber = notification.userInfo[LYRTypingIndicatorValueUserInfoKey];
-    LYRTypingIndicator status = statusNumber.unsignedIntegerValue;
-    if (status == LYRTypingDidBegin) {
-        [self.typingParticipantIDs addObject:participantID];
+
+    LYRTypingIndicator *typingIndicator = notification.userInfo[LYRTypingIndicatorObjectUserInfoKey];
+    if (typingIndicator.action == LYRTypingIndicatorActionBegin) {
+        [self.typingParticipantIDs addObject:typingIndicator.sender.userID];
     } else {
-        [self.typingParticipantIDs removeObject:participantID];
+        [self.typingParticipantIDs removeObject:typingIndicator.sender.userID];
     }
     [self updateTypingIndicatorOverlay:YES];
 }
@@ -815,7 +815,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     }
 }
 
-- (void)handleApplicationWillEnterForeground:(NSNotification *)notification
+- (void)handleApplicationDidBecomeActive:(NSNotification *)notification
 {
     if (self.conversation && self.marksMessagesAsRead) {
         NSError *error;
@@ -832,7 +832,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 {
     NSMutableOrderedSet *knownParticipantsTyping = [NSMutableOrderedSet new];
     [self.typingParticipantIDs enumerateObjectsUsingBlock:^(NSString *participantID, NSUInteger idx, BOOL *stop) {
-        id<ATLParticipant> participant = [self participantForIdentifier:participantID];
+        LYRIdentity *identity = ATLIdentityFromSet(participantID, self.conversation.participants);
+        id<ATLParticipant> participant = [self participantForIdentity:identity];
         if (participant) [knownParticipantsTyping addObject:participant];
     }];
     [self.typingIndicatorController updateWithParticipants:knownParticipantsTyping animated:animated];
@@ -908,6 +909,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     BOOL nearTop = distanceFromTop <= minimumDistanceFromTopToTriggerLoadingMore;
     if (!nearTop) return;
     
+    self.expandingPaginationWindow = YES;
     [self.conversationDataSource expandPaginationWindow];
 }
 
@@ -936,12 +938,12 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)configureConversationForAddressBar
 {
     NSSet *participants = self.addressBarController.selectedParticipants.set;
-    NSSet *participantIdentifiers = [participants valueForKey:@"participantIdentifier"];
+    NSSet *participantIdentifiers = [participants valueForKey:@"userID"];
     
     if (!participantIdentifiers && !self.conversation.participants) return;
     
-    NSString *authenticatedUserID = self.layerClient.authenticatedUserID;
-    NSMutableSet *conversationParticipantsCopy = [self.conversation.participants mutableCopy];
+    NSString *authenticatedUserID = self.layerClient.authenticatedUser.userID;
+    NSMutableSet *conversationParticipantsCopy = [[self.conversation.participants valueForKey:@"userID"] mutableCopy];
     if ([conversationParticipantsCopy containsObject:authenticatedUserID]) {
         [conversationParticipantsCopy removeObject:authenticatedUserID];
     }
@@ -958,18 +960,18 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     if (!self.addressBarController) return;
     
     NSOrderedSet *existingParticipants = self.addressBarController.selectedParticipants;
-    NSOrderedSet *existingParticipantIdentifiers = [existingParticipants valueForKey:@"participantIdentifier"];
+    NSOrderedSet *existingParticipantIdentifiers = [existingParticipants valueForKey:@"userID"];
     
     if (!existingParticipantIdentifiers && !self.conversation.participants) return;
-    if ([existingParticipantIdentifiers.set isEqual:self.conversation.participants]) return;
+    if ([existingParticipantIdentifiers.set isEqual:[self.conversation.participants valueForKey:@"userID"]]) return;
     
     NSMutableOrderedSet *removedIdentifiers = [NSMutableOrderedSet orderedSetWithOrderedSet:existingParticipantIdentifiers];
-    [removedIdentifiers minusSet:self.conversation.participants];
+    [removedIdentifiers minusSet:[self.conversation.participants valueForKey:@"userID"]];
     
-    NSMutableOrderedSet *addedIdentifiers = [NSMutableOrderedSet orderedSetWithSet:self.conversation.participants];
+    NSMutableOrderedSet *addedIdentifiers = [NSMutableOrderedSet orderedSetWithSet:[self.conversation.participants valueForKey:@"userID"]];
     [addedIdentifiers minusOrderedSet:existingParticipantIdentifiers];
     
-    NSString *authenticatedUserID = self.layerClient.authenticatedUserID;
+    NSString *authenticatedUserID = self.layerClient.authenticatedUser.userID;
     if (authenticatedUserID) [addedIdentifiers removeObject:authenticatedUserID];
     
     NSMutableOrderedSet *participantIdentifiers = [NSMutableOrderedSet orderedSetWithOrderedSet:existingParticipantIdentifiers];
@@ -1100,12 +1102,12 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 
 #pragma mark - Data Source
 
-- (id<ATLParticipant>)participantForIdentifier:(NSString *)identifier
+- (id<ATLParticipant>)participantForIdentity:(LYRIdentity *)identity;
 {
-    if ([self.dataSource respondsToSelector:@selector(conversationViewController:participantForIdentifier:)]) {
-        return [self.dataSource conversationViewController:self participantForIdentifier:identifier];
+    if ([self.dataSource respondsToSelector:@selector(conversationViewController:participantForIdentity:)]) {
+        return [self.dataSource conversationViewController:self participantForIdentity:identity];
     } else {
-        @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"ATLConversationViewControllerDelegate must return a participant for an identifier" userInfo:nil];
+        return identity;
     }
 }
 
@@ -1141,7 +1143,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         reuseIdentifier = [self.dataSource conversationViewController:self reuseIdentifierForMessage:message];
     }
     if (!reuseIdentifier) {
-        if ([self.layerClient.authenticatedUserID isEqualToString:message.sender.userID]) {
+        if ([self.layerClient.authenticatedUser.userID isEqualToString:message.sender.userID]) {
             reuseIdentifier = ATLOutgoingMessageCellIdentifier;
         } else {
             reuseIdentifier = ATLIncomingMessageCellIdentifier;
@@ -1159,13 +1161,13 @@ static NSInteger const ATLPhotoActionSheet = 1000;
         conversation = [self.dataSource conversationViewController:self conversationWithParticipants:participants];
         if (conversation) return conversation;
     }
-    NSSet *participantIdentifiers = [participants valueForKey:@"participantIdentifier"];
+    NSSet *participantIdentifiers = [participants valueForKey:@"userID"];
     conversation = [self existingConversationWithParticipantIdentifiers:participantIdentifiers];
     if (conversation) return conversation;
     
-    BOOL deliveryReceiptsEnabled = participants.count <= 5;
-    NSDictionary *options = @{LYRConversationOptionsDeliveryReceiptsEnabledKey: @(deliveryReceiptsEnabled)};
-    conversation = [self.layerClient newConversationWithParticipants:participantIdentifiers options:options error:nil];
+    LYRConversationOptions *conversationOptions = [LYRConversationOptions new];
+    conversationOptions.deliveryReceiptsEnabled = participants.count <= 5;
+    conversation = [self.layerClient newConversationWithParticipants:participantIdentifiers options:conversationOptions error:nil];
     return conversation;
 }
 
@@ -1177,7 +1179,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
           forChangeType:(LYRQueryControllerChangeType)type
            newIndexPath:(NSIndexPath *)newIndexPath
 {
-    if (self.conversationDataSource.isExpandingPaginationWindow) return;
+    if (self.expandingPaginationWindow) return;
     NSInteger currentIndex = indexPath ? [self.conversationDataSource collectionViewSectionForQueryControllerRow:indexPath.row] : NSNotFound;
     NSInteger newIndex = newIndexPath ? [self.conversationDataSource collectionViewSectionForQueryControllerRow:newIndexPath.row] : NSNotFound;
     [self.objectChanges addObject:[ATLDataSourceChange changeObjectWithType:type newIndex:newIndex currentIndex:currentIndex]];
@@ -1193,7 +1195,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     NSArray *objectChanges = [self.objectChanges copy];
     [self.objectChanges removeAllObjects];
     
-    if (self.conversationDataSource.isExpandingPaginationWindow) {
+    if (self.expandingPaginationWindow) {
+        self.expandingPaginationWindow = NO;
         self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
         [self reloadCollectionViewAdjustingForContentHeightChange];
         return;
@@ -1308,7 +1311,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (LYRConversation *)existingConversationWithParticipantIdentifiers:(NSSet *)participantIdentifiers
 {
     NSMutableSet *set = [participantIdentifiers mutableCopy];
-    [set addObject:self.layerClient.authenticatedUserID];
+    [set addObject:self.layerClient.authenticatedUser.userID];
     LYRQuery *query = [LYRQuery queryWithQueryableClass:[LYRConversation class]];
     query.predicate = [LYRPredicate predicateWithProperty:@"participants" predicateOperator:LYRPredicateOperatorIsEqualTo value:set];
     query.limit = 1;
@@ -1319,7 +1322,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 {
     NSMutableOrderedSet *participants = [NSMutableOrderedSet new];
     for (NSString *participantIdentifier in identifiers) {
-        id<ATLParticipant> participant = [self participantForIdentifier:participantIdentifier];
+        LYRIdentity *identity = ATLIdentityFromSet(participantIdentifier, self.conversation.participants);
+        id<ATLParticipant> participant = [self participantForIdentity:identity];
         if (!participant) continue;
         [participants addObject:participant];
     }
@@ -1330,10 +1334,10 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 {
     NSString *participantName;
     if (message.sender.userID) {
-        id<ATLParticipant> participant = [self participantForIdentifier:message.sender.userID];
-        participantName = participant.fullName ?: ATLLocalizedString(@"atl.conversation.participant.unknown.key", @"Unknown User", nil);
+        id<ATLParticipant> participant = [self participantForIdentity:message.sender];
+        participantName = participant.displayName ?: ATLLocalizedString(@"atl.conversation.participant.unknown.key", @"Unknown User", nil);
     } else {
-        participantName = message.sender.name;
+        participantName = message.sender.displayName;
     }
     return participantName;
 }
@@ -1347,7 +1351,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(layerClientObjectsDidChange:) name:LYRClientObjectsDidChangeNotification object:nil];
     
     // Application State Notifications
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleApplicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleApplicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
 }
 
 @end

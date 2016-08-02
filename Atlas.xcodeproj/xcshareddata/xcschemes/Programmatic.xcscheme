@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0730"
+   LastUpgradeVersion = "0720"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "253C29A41C3C9D7100ED1549"
-               BuildableName = "Atlas.framework"
-               BlueprintName = "Atlas"
+               BlueprintIdentifier = "D6F57E291A8BE4AF00B62BD9"
+               BuildableName = "Programmatic.app"
+               BlueprintName = "Programmatic"
                ReferencedContainer = "container:Atlas.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -28,7 +28,36 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D6F57E411A8BE4AF00B62BD9"
+               BuildableName = "ProgrammaticTests.xctest"
+               BlueprintName = "ProgrammaticTests"
+               ReferencedContainer = "container:Atlas.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D0294DD71A93F33900702856"
+               BuildableName = "UnitTests.xctest"
+               BlueprintName = "UnitTests"
+               ReferencedContainer = "container:Atlas.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "D6F57E291A8BE4AF00B62BD9"
+            BuildableName = "Programmatic.app"
+            BlueprintName = "Programmatic"
+            ReferencedContainer = "container:Atlas.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>
@@ -41,16 +70,19 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
-      <MacroExpansion>
+      allowLocationSimulation = "YES"
+      language = "en"
+      region = "US">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "253C29A41C3C9D7100ED1549"
-            BuildableName = "Atlas.framework"
-            BlueprintName = "Atlas"
+            BlueprintIdentifier = "D6F57E291A8BE4AF00B62BD9"
+            BuildableName = "Programmatic.app"
+            BlueprintName = "Programmatic"
             ReferencedContainer = "container:Atlas.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>
@@ -60,15 +92,16 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "253C29A41C3C9D7100ED1549"
-            BuildableName = "Atlas.framework"
-            BlueprintName = "Atlas"
+            BlueprintIdentifier = "D6F57E291A8BE4AF00B62BD9"
+            BuildableName = "Programmatic.app"
+            BlueprintName = "Programmatic"
             ReferencedContainer = "container:Atlas.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

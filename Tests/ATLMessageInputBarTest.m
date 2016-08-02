@@ -56,11 +56,11 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     [super setUp];
 
     ATLUserMock *mockUser = [ATLUserMock userWithMockUserName:ATLMockUserNameBlake];
-    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser.participantIdentifier];
+    LYRClientMock *layerClient = [LYRClientMock layerClientMockWithAuthenticatedUserID:mockUser.userID];
     self.testInterface = [ATLTestInterface testIntefaceWithLayerClient:layerClient];
     
     ATLUserMock *mockUser1 = [ATLUserMock userWithMockUserName:ATLMockUserNameKlemen];
-    self.conversation = (LYRConversation *)[self.testInterface conversationWithParticipants:[NSSet setWithObject:mockUser1.participantIdentifier] lastMessageText:nil];
+    self.conversation = (LYRConversation *)[self.testInterface conversationWithParticipants:[NSSet setWithObject:mockUser1.userID] lastMessageText:nil];
 }
 
 - (void)tearDown
@@ -104,7 +104,7 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     toolBar.textInputView.text = @"heyhey";
     [toolBar layoutSubviews];
     CGFloat width = [toolBar.rightAccessoryButtonTitle boundingRectWithSize:CGSizeMake(MAXFLOAT, MAXFLOAT) options:0 attributes:@{NSFontAttributeName: toolBar.rightAccessoryButtonFont} context:nil].size.width + ATLRightAccessoryButtonPadding;
-    expect(toolBar.rightAccessoryButton.frame.size.width).to.equal(width);
+    expect(toolBar.rightAccessoryButton.frame.size.width).to.beCloseToWithin(width, 0.5);
 }
 
 - (void)testToVerifyRightAccessoryButtonDelegateFunctionality
@@ -148,7 +148,7 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     id delegateMock = OCMProtocolMock(@protocol(ATLMessageInputToolbarDelegate));
     toolBar.inputToolBarDelegate = delegateMock;
     
-    NSString *testText = @"This is a test";
+    NSString *testText = @"Test";
     [[[delegateMock expect] andDo:^(NSInvocation *invocation) {
         ATLMessageInputToolbar *toolbar;
         [invocation getArgument:&toolbar atIndex:2];
@@ -178,7 +178,6 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
 - (void)testToVerifyTextEnterendDoesNotEnableButtons
 {
     [self setRootViewController];
-    self.viewController.conversation = nil;
     
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:ATLMessageInputToolbarAccessibilityLabel];
     toolBar.rightAccessoryButton.enabled = NO;
@@ -199,7 +198,7 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     id delegateMock = OCMProtocolMock(@protocol(ATLMessageInputToolbarDelegate));
     toolBar.inputToolBarDelegate = delegateMock;
     
-    __block NSString *testText = @"This is a test";
+    __block NSString *testText = @"Test";
     [[[delegateMock expect] andDo:^(NSInvocation *invocation) {
         ATLMessageInputToolbar *newToolbar;
         [invocation getArgument:&newToolbar atIndex:2];
@@ -227,7 +226,7 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     id delegateMock = OCMProtocolMock(@protocol(ATLMessageInputToolbarDelegate));
     toolBar.inputToolBarDelegate = delegateMock;
     
-    __block NSString *testText = @"This is a test";
+    __block NSString *testText = @"Test";
     [[[delegateMock expect] andDo:^(NSInvocation *invocation) {
         NSArray *parts = toolBar.mediaAttachments;
         expect(parts.count).to.equal(3);
@@ -304,7 +303,7 @@ CGFloat const ATLRightAccessoryButtonPadding = 5.3f;
     ATLMessageInputToolbar *toolBar = (ATLMessageInputToolbar *)[tester waitForViewWithAccessibilityLabel:@"Message Input Toolbar"];
     toolBar.displaysRightAccessoryImage = NO;
     
-    [tester enterText:@"test" intoViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
+    [tester enterText:@"Test" intoViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];
     expect(toolBar.rightAccessoryButton.enabled).to.beTruthy();
     
     [tester clearTextFromViewWithAccessibilityLabel:ATLMessageInputToolbarTextInputView];

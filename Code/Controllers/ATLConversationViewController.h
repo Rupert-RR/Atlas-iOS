@@ -113,7 +113,7 @@ NS_ASSUME_NONNULL_BEGIN
  @param participantForIdentifier The participant identifier.
  @return An object conforming to the `ATLParticipant` protocol.
  */
-- (id<ATLParticipant>)conversationViewController:(ATLConversationViewController *)conversationViewController participantForIdentifier:(NSString *)participantIdentifier;
+- (id<ATLParticipant>)conversationViewController:(ATLConversationViewController *)conversationViewController participantForIdentity:(LYRIdentity *)identity;
 
 /**
  @abstract Asks the data source for an `NSAttributedString` representation of a given date.
@@ -146,7 +146,7 @@ NS_ASSUME_NONNULL_BEGIN
  This can be done via a call to `registerClass:forMessageCellWithReuseIdentifier:`. Applications should then return the registered reuse identifier only when necessary.
  If `nil` is returned, the collection view will default to internal values for reuse identifiers.
  */
-- (NSString *)conversationViewController:(ATLConversationViewController *)viewController reuseIdentifierForMessage:(LYRMessage *)message;
+- (nullable NSString *)conversationViewController:(ATLConversationViewController *)viewController reuseIdentifierForMessage:(LYRMessage *)message;
 
 /**
  @abstract Allows the data source to customise the collection view cell for a message.
