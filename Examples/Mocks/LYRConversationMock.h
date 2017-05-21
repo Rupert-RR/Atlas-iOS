@@ -19,6 +19,8 @@
 //
 #import <Foundation/Foundation.h>
 #import "LYRMessageMock.h"
+#import <Atlas/Atlas.h>
+
 
 @class LYRMessageMock;
 
@@ -31,6 +33,7 @@
 @property (nonatomic, readonly) BOOL hasUnreadMessages LYR_QUERYABLE_PROPERTY;
 @property (nonatomic, readonly) BOOL isDeleted;
 @property (nonatomic, readonly) NSDictionary *metadata;
+@property (nonatomic, readonly) NSUInteger totalNumberOfMessages;
 
 + (instancetype)newConversationWithParticipants:(NSSet *)participants options:(NSDictionary *)options;
 
@@ -46,7 +49,7 @@
 
 - (void)deleteValueForMetadataAtKeyPath:(NSString *)keyPath;
 
-- (void)sendTypingIndicator:(LYRTypingIndicator)typingIndicator;
+- (void)sendTypingIndicator:(LYRTypingIndicator *)typingIndicator;
 
 - (BOOL)delete:(LYRDeletionMode)deletionMode error:(NSError **)error;
 

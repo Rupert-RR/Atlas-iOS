@@ -47,6 +47,8 @@ LYRConversation *LYRConversationDataSourceConversationFromPredicate(LYRPredicate
 @property (nonatomic, readwrite) LYRQueryController *queryController;
 @property (nonatomic, readwrite) BOOL expandingPaginationWindow;
 @property (nonatomic, readwrite) LYRConversation *conversation;
+@property (nonatomic) NSInteger messageCountBeforeSync;
+@property (nonatomic) BOOL shouldSynchronizeRemoteMessages;
 
 @end
 
@@ -64,7 +66,9 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
 {
     self = [super init];
     if (self) {
-        NSUInteger numberOfMessagesAvailable = [layerClient countForQuery:query error:nil];
+        // Setting 0 for pagination causes messages in a new conversation to not display
+        // A minimum of 1 ensures all messages display correctly
+        NSUInteger numberOfMessagesAvailable = MAX(1, [layerClient countForQuery:query error:nil]);
         NSUInteger numberOfMessagesToDisplay = MIN(numberOfMessagesAvailable, ATLQueryControllerPaginationWindow);
     
         NSError *error = nil;
@@ -73,13 +77,16 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
             NSLog(@"LayerKit failed to create a query controller with error: %@", error);
             return nil;
         }
-        _queryController.updatableProperties = [NSSet setWithObjects:@"parts.transferStatus", @"recipientStatusByUserID", @"sentAt", nil];
+        _queryController.updatableProperties = [NSSet setWithObjects:@"parts.transferStatus", @"recipientStatusByUserID", @"sentAt", @"sender.presenceStatus", nil];
         _queryController.paginationWindow = -numberOfMessagesToDisplay;
         
         self.conversation = LYRConversationDataSourceConversationFromPredicate(query.predicate);
         
         BOOL success = [_queryController execute:&error];
         if (!success) NSLog(@"LayerKit failed to execute query with error: %@", error);
+        
+        _messageCountBeforeSync = _queryController.count;
+        _shouldSynchronizeRemoteMessages = YES;
     }
     return self;
 }
@@ -114,14 +121,22 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
 
 - (void)requestToSynchronizeMoreMessages:(NSUInteger)numberOfMessagesToSynchronize
 {
+    if (!self.shouldSynchronizeRemoteMessages) {
+        return;
+    }
+    
+    self.shouldSynchronizeRemoteMessages = NO;
     NSError *error;
     __weak typeof(self) weakSelf = self;
     __block __weak id observer = [[NSNotificationCenter defaultCenter] addObserverForName:LYRConversationDidFinishSynchronizingNotification object:self.conversation queue:nil usingBlock:^(NSNotification * _Nonnull note) {
         if (observer) {
             [[NSNotificationCenter defaultCenter] removeObserver:observer];
         }
+
+        weakSelf.shouldSynchronizeRemoteMessages = YES;
         [weakSelf finishExpandingPaginationWindow];
     }];
+    self.messageCountBeforeSync = self.queryController.count;
     BOOL success = [self.conversation synchronizeMoreMessages:numberOfMessagesToSynchronize error:&error];
     if (!success) {
         if (observer) {

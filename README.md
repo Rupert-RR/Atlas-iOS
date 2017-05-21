@@ -1,6 +1,6 @@
 ![Atlas Header](Assets/atlas-github-header.png)
 
-[![Build Status](http://img.shields.io/travis/layerhq/Atlas-iOS.svg?style=flat)](https://travis-ci.org/layerhq/Atlas-iOS)
+[![Build Status](https://circleci.com/gh/layerhq/Atlas-iOS.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/layerhq/Atlas-iOS)
 [![Pod Version](http://img.shields.io/cocoapods/v/Atlas.svg?style=flat)](http://cocoadocs.org/docsets/Atlas/)
 [![Pod Platform](http://img.shields.io/cocoapods/p/Atlas.svg?style=flat)](http://cocoadocs.org/docsets/Atlas/)
 [![Pod License](http://img.shields.io/cocoapods/l/Atlas.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0.html)
@@ -268,13 +268,24 @@ Atlas takes advantage of Apple's `UIAppearance` protocol which lets you change U
 @property (nonatomic) UIColor *addressBarHighlightColor
 ```
 
-### [ATLAvatarImageView](Code/Views/ATLAvatarImageView.h)
+### [ATLAvatarView](Code/Views/ATLAvatarView.h)
 
 ```objc
+@property (nonatomic) UIImage *imageView;
 @property (nonatomic) CGFloat avatarImageViewDiameter
 @property (nonatomic) UIFont *initialsFont
 @property (nonatomic) UIColor *initialsColor
 @property (nonatomic) UIColor *imageViewBackgroundColor
+@property (nonatomic) BOOL presenceStatusEnabled;
+@property (nonatomic) LYRIdentityPresenceStatus presenceStatus;
+```
+
+### [ATLPresenceStatusView](Code/Views/ATLPresenceStatusView.h)
+
+```objc
+@property (nonatomic) UIColor *statusColor;
+@property (nonatomic) UIColor *statusBackgroundColor;
+@property (nonatomic) ATLMPresenceStatusViewMode mode;
 ```
 
 ### [ATLConversationCollectionViewHeader](Code/Views/ATLConversationCollectionViewHeader.h)

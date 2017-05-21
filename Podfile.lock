@@ -1,49 +1,44 @@
 PODS:
-  - Atlas (1.0.26):
-    - LayerKit (>= 0.22.0)
+  - Atlas (1.1.0):
+    - LayerKit (>= 0.26.2)
   - Expecta (1.0.5)
-  - KIF (3.4.2):
-    - KIF/Core (= 3.4.2)
-  - KIF/Core (3.4.2)
-  - KIFViewControllerActions (1.0.1):
+  - KIF (3.5.2):
+    - KIF/Core (= 3.5.2)
+  - KIF/Core (3.5.2)
+  - KIFViewControllerActions (1.0.2):
     - KIF (>= 2.0.0)
-  - LayerKit (0.22.0)
+  - LayerKit (0.26.2)
   - LYRCountDownLatch (0.9.0)
-  - OCMock (3.3.1)
+  - OCMock (3.4)
 
 DEPENDENCIES:
   - Atlas (from `.`)
   - Expecta
   - KIF
-  - KIFViewControllerActions (from `https://github.com/blakewatters/KIFViewControllerActions.git`)
+  - KIFViewControllerActions (~> 1.0.2)
   - LYRCountDownLatch (from `https://github.com/layerhq/LYRCountDownLatch.git`)
   - OCMock
 
 EXTERNAL SOURCES:
   Atlas:
     :path: "."
-  KIFViewControllerActions:
-    :git: https://github.com/blakewatters/KIFViewControllerActions.git
   LYRCountDownLatch:
     :git: https://github.com/layerhq/LYRCountDownLatch.git
 
 CHECKOUT OPTIONS:
-  KIFViewControllerActions:
-    :commit: 181b4f56bc36274288f6b6d3ab3969d749345290
-    :git: https://github.com/blakewatters/KIFViewControllerActions.git
   LYRCountDownLatch:
     :commit: 02119f855ad14e7fc0dae32bbbf17c735a281cfe
     :git: https://github.com/layerhq/LYRCountDownLatch.git
 
 SPEC CHECKSUMS:
-  Atlas: 201d37a7b90a2ba717e666bf417ca2c5d104dd31
+  Atlas: 15932c6132b724d46d65868edc9ab2489416c24e
   Expecta: e1c022fcd33910b6be89c291d2775b3fe27a89fe
-  KIF: b518c9831453abea5afdbbde3908ec47832d6d56
-  KIFViewControllerActions: 8d2f9ec9f185fa70ca9f54a297de544afe71ea55
-  LayerKit: dc3f45305bd0d520e5a586247d93c6e03b803ccd
+  KIF: f2a6025bb3f11692df675054a134d43a9ec2d7db
+  KIFViewControllerActions: 923795dc4bd4ca5657841ce7455ce67447693861
+  LayerKit: 1e50befac52ee79ef8234a646a7fd38197946929
   LYRCountDownLatch: 9b440b42a19ddbf4e75bdd4b43726baa1527606a
-  OCMock: f3f61e6eaa16038c30caa5798c5e49d3307b6f22
+  OCMock: 35ae71d6a8fcc1b59434d561d1520b9dd4f15765
 
-PODFILE CHECKSUM: 31c94cbd9f9d85fc7e9aae02109733cba464cd83
+PODFILE CHECKSUM: 8961daffdeefa8d5f0425798d1cff0caed066344
 
-COCOAPODS: 1.0.1
+COCOAPODS: 1.2.0

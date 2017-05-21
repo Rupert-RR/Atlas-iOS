@@ -21,14 +21,11 @@
 #import "ATLConversationTableViewCell.h"
 #import "ATLConstants.h"
 #import "ATLMessagingUtilities.h"
-#import "ATLAvatarImageView.h"
+#import "ATLAvatarView.h"
 
 static BOOL ATLIsDateInToday(NSDate *date)
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    NSCalendarUnit dateUnits = NSEraCalendarUnit | NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit;
-#pragma GCC diagnostic pop    
+    NSCalendarUnit dateUnits = NSCalendarUnitEra | NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay;
     NSDateComponents *dateComponents = [[NSCalendar currentCalendar] components:dateUnits fromDate:date];
     NSDateComponents *todayComponents = [[NSCalendar currentCalendar] components:dateUnits fromDate:[NSDate date]];
     return ([dateComponents day] == [todayComponents day] &&
@@ -63,7 +60,7 @@ static NSDateFormatter *ATLShortTimeFormatter()
 @property (nonatomic) NSLayoutConstraint *conversationTitleLabelWithImageLeftConstraint;
 @property (nonatomic) NSLayoutConstraint *conversationTitleLabelWithoutImageLeftConstraint;
 
-@property (nonatomic) ATLAvatarImageView *conversationImageView;
+@property (nonatomic) ATLAvatarView *conversationImageView;
 @property (nonatomic) UILabel *conversationTitleLabel;
 @property (nonatomic) UILabel *dateLabel;
 @property (nonatomic) UILabel *lastMessageLabel;
@@ -118,9 +115,9 @@ static CGFloat const ATLChevronIconViewRightPadding = 14.0f;
     self.backgroundColor = _cellBackgroundColor;
     
     // Initialize Avatar Image
-    _conversationImageView = [[ATLAvatarImageView alloc] init];
+    _conversationImageView = [[ATLAvatarView alloc] init];
     _conversationImageView.translatesAutoresizingMaskIntoConstraints = NO;
-    _conversationImageView.layer.masksToBounds = YES;
+    _conversationImageView.imageView.layer.masksToBounds = YES;
     _conversationImageView.hidden = YES;
     [self.contentView addSubview:_conversationImageView];
     

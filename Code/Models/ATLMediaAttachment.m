@@ -239,7 +239,7 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
         if ((UTTypeConformsTo(fileUTI, kUTTypeVideo) || UTTypeConformsTo(fileUTI, kUTTypeQuickTimeMovie))) {
             thumbnailImage = ATLMediaAttachmentGenerateThumbnailFromVideoFileURL(fileURL);
         }
-        self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithImage:thumbnailImage metadata:nil];
+        self.thumbnailInputStream = (thumbnailImage != nil) ? [ATLMediaInputStream mediaInputStreamWithImage:thumbnailImage metadata:nil] : nil;
         self.thumbnailMIMEType = ATLMIMETypeImageJPEGPreview;
     }
     ((ATLMediaInputStream *)self.thumbnailInputStream).maximumSize = thumbnailSize;
@@ -554,10 +554,7 @@ UIImage *ATLMediaAttachmentGenerateThumbnailFromVideoFileURL(NSURL *videoFileURL
     assetImageGenerator.appliesPreferredTrackTransform = YES;
     NSError *error = NULL;
     AVAssetTrack *videoAssetTrack = [[URLasset tracksWithMediaType:AVMediaTypeVideo] firstObject];
-    CMTime time;
-    if (videoAssetTrack) {
-        time = CMTimeMake(0, videoAssetTrack.nominalFrameRate);
-    }
+    CMTime time = CMTimeMake(0, videoAssetTrack.nominalFrameRate);
     CGImageRef imageRef = [assetImageGenerator copyCGImageAtTime:time actualTime:NULL error:&error];
     if (error) {
         NSLog(@"Failed to create thumbnail!");

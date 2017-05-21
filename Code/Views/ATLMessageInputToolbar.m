@@ -30,6 +30,7 @@ NSString *const ATLMessageInputToolbarDidChangeHeightNotification = @"ATLMessage
 @property (nonatomic, copy) NSAttributedString *attributedStringForMessageParts;
 @property (nonatomic) UITextView *dummyTextView;
 @property (nonatomic) CGFloat textViewMaxHeight;
+@property (nonatomic) CGFloat textViewMinScrollHeight;
 @property (nonatomic) CGFloat buttonCenterY;
 @property (nonatomic) BOOL firstAppearance;
 
@@ -89,6 +90,7 @@ static CGFloat const ATLButtonHeight = 28.0f;
         self.textInputView.layer.borderColor = ATLGrayColor().CGColor;
         self.textInputView.layer.borderWidth = 0.5;
         self.textInputView.layer.cornerRadius = 5.0f;
+        self.textInputView.scrollEnabled = NO;
         [self addSubview:self.textInputView];
         
         self.verticalMargin = ATLVerticalMargin;
@@ -199,6 +201,7 @@ static CGFloat const ATLButtonHeight = 28.0f;
 {
     _maxNumberOfLines = maxNumberOfLines;
     self.textViewMaxHeight = self.maxNumberOfLines * self.textInputView.font.lineHeight;
+    self.textViewMinScrollHeight = (self.maxNumberOfLines - 1) * self.textInputView.font.lineHeight;
     [self setNeedsLayout];
 }
 
@@ -306,24 +309,25 @@ static CGFloat const ATLButtonHeight = 28.0f;
 
     [self setNeedsLayout];
     
-    // Workaround for iOS 7.1 not scrolling bottom line into view when entering text. Note that in textViewDidChangeSelection: if the selection to the bottom line is due to entering text then the calculation of the bottom content offset won't be accurate since the content size hasn't yet been updated. Content size has been updated by the time this method is called so our calculation will work.
-    NSRange end = NSMakeRange(textView.text.length, 0);
-    if (NSEqualRanges(textView.selectedRange, end)) {
-        CGPoint bottom = CGPointMake(0, textView.contentSize.height - CGRectGetHeight(textView.frame));
-        [textView setContentOffset:bottom animated:NO];
+    self.textInputView.scrollEnabled = self.textInputView.frame.size.height > self.textViewMinScrollHeight;
+    CGRect line = [textView caretRectForPosition:textView.selectedTextRange.start];
+    if (!CGSizeEqualToSize(line.size, CGSizeZero)) {
+        CGFloat overflow = line.origin.y + line.size.height - (textView.contentOffset.y + textView.bounds.size.height - textView.contentInset.bottom - textView.contentInset.top);
+        if (overflow > 0) {
+            // We are at the bottom of the visible text and introduced a line feed, scroll down. Scroll caret to visible area
+            CGPoint offset = textView.contentOffset;
+            offset.y += overflow;
+            
+            // Cannot animate with setContentOffset:animated: or caret will not appear
+            [UIView animateWithDuration:.2 animations:^{
+                [textView setContentOffset:offset];
+            }];
+        }
     }
 }
 
 - (void)textViewDidChangeSelection:(UITextView *)textView
 {
-    // Workaround for iOS 7.1 not scrolling bottom line into view. Note that this only works for a selection change not due to text entry (in other words e.g. when using an external keyboard's bottom arrow key). The workaround in textViewDidChange: handles selection changes due to text entry.
-    NSRange end = NSMakeRange(textView.text.length, 0);
-    if (NSEqualRanges(textView.selectedRange, end)) {
-        CGPoint bottom = CGPointMake(0, textView.contentSize.height - CGRectGetHeight(textView.frame));
-        [textView setContentOffset:bottom animated:NO];
-        return;
-    }
-
     // Workaround for automatic scrolling not occurring in some cases.
     [textView scrollRangeToVisible:textView.selectedRange];
 }

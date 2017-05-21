@@ -8,10 +8,10 @@
 
 #import <UIKit/UIKit.h>
 #import "ATLMessageBubbleView.h"
-#import "ATLAvatarImageView.h"
+#import "ATLAvatarView.h"
 #import "ATLMessagePresenting.h"
 
-@import LayerKit;
+#import <LayerKit/LayerKit.h>
 
 typedef NS_ENUM(NSInteger, ATLCellType) {
     ATLOutgoingCellType,
@@ -45,7 +45,7 @@ extern CGFloat const ATLMessageCellHorizontalMargin;
 /**
  @abstract The optional avatar image view representing a user.
  */
-@property (nonatomic) ATLAvatarImageView *avatarImageView;
+@property (nonatomic) ATLAvatarView *avatarView;
 
 /**
  @abstract The `LYRMessage` object passed in `ATLMessagePresenting` protocol `presentMessage:`.
